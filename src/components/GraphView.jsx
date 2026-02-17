@@ -12,7 +12,7 @@ const GraphView = forwardRef(({
   motifs, gridOrder, width = 800, height = 800, 
   showIDs, isFullScreen, toggleFullScreen, centralityMode,
   edgeTopology = { radial: true, ring: true },
-  transparentBackground = false // NEW PROP
+  transparentBackground = false 
 }, ref) => {
   
   const svgRef = useRef(null);
@@ -45,10 +45,7 @@ const GraphView = forwardRef(({
     let previousLayerNodes = [];
     const centerMotifIndex = sortedMotifs.findIndex(m => m.config.multiplicity === 0);
     
-    // --- NODE GENERATION (Same Math as Canvas) ---
-    // Canvas Math: radius * (500*scale - 50*scale)
-    // Graph Math:  radius * ((minDim/2) - 50)
-    // If minDim=1000, half=500. 500-50=450. Matches perfectly.
+    // Scale logic matches Canvas exactly
     const maxRadiusPx = (Math.min(viewWidth, viewHeight) / 2) - 50;
 
     if (centerMotifIndex !== -1) {
@@ -170,8 +167,11 @@ const GraphView = forwardRef(({
   useImperativeHandle(ref, () => ({ download: downloadSVG, getData: getAnalysisData }));
 
   return (
-    <div className="view-pane-wrapper">
-      {/* If transparentBackground is true (Overlay Mode), DO NOT render the white rect */}
+    <div 
+      className="view-pane-wrapper" 
+      // FIX: THIS LINE IS THE SOLUTION. It makes the wrapper transparent.
+      style={transparentBackground ? { background: 'transparent', boxShadow: 'none' } : {}}
+    >
       {isFullScreen && (
         <div className="fullscreen-toolbar">
            <button onClick={toggleFullScreen} className="float-btn">Exit Full Screen</button>
@@ -179,8 +179,7 @@ const GraphView = forwardRef(({
         </div>
       )}
       <svg ref={svgRef} width={viewWidth} height={viewHeight} viewBox={`0 0 ${viewWidth} ${viewHeight}`} className="main-graph-element">
-        
-        {/* HIDE WHITE BACKGROUND IN OVERLAY MODE */}
+        {/* Only draw white background rect if NOT in overlay mode */}
         {!transparentBackground && <rect width="100%" height="100%" fill="white" />}
         
         {graphData.edges.map((e, i) => (

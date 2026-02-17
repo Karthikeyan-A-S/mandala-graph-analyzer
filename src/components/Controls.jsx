@@ -11,7 +11,11 @@ const Controls = ({
   centralityMode, setCentralityMode,
   handleOpenTable, 
   edgeTopology, setEdgeTopology,
+  
+  // Independent Opacity Props
   graphOpacity, setGraphOpacity,
+  imageOpacity, setImageOpacity,
+
   motifs, selectedId, setSelectedId,
   addMotif, updateMotif, deleteMotif, clearAllMotifs,
   handleCustomImage,
@@ -49,10 +53,17 @@ const Controls = ({
           <label className="checkbox-label"><input type="checkbox" checked={showIDs} onChange={e => setShowIDs(e.target.checked)} /> IDs</label>
         </div>
 
+        {/* --- DUAL OPACITY CONTROLS --- */}
         {viewMode === 'overlay' && (
-          <div className="slider-row" style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid #eee' }}>
-            <label className="slider-label" style={{width:'80px'}}>Alpha:</label>
-            <input type="range" className="styled-range" min={0} max={1} step={0.05} value={graphOpacity} onChange={e => setGraphOpacity(Number(e.target.value))} />
+          <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid #eee' }}>
+            <div className="slider-row" style={{ marginBottom: '8px' }}>
+              <label className="slider-label" style={{width:'95px'}}>Image Opacity:</label>
+              <input type="range" className="styled-range" min={0} max={1} step={0.05} value={imageOpacity} onChange={e => setImageOpacity(Number(e.target.value))} />
+            </div>
+            <div className="slider-row">
+              <label className="slider-label" style={{width:'95px'}}>Graph Opacity:</label>
+              <input type="range" className="styled-range" min={0} max={1} step={0.05} value={graphOpacity} onChange={e => setGraphOpacity(Number(e.target.value))} />
+            </div>
           </div>
         )}
 
@@ -81,6 +92,7 @@ const Controls = ({
         )}
       </fieldset>
 
+      {/* Rest of the controls (I/O, Library, etc.) remain standard */}
       <div className="view-actions-row">
         <button className="secondary-btn" onClick={toggleFullScreen}>⤢ Full Screen</button>
         <button className="primary-btn" onClick={triggerViewDownload}>⬇ Save {viewMode === 'canvas' ? 'PNG' : 'SVG'}</button>

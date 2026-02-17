@@ -13,11 +13,12 @@ const App = () => {
     return defaultValue;
   };
 
-  const [viewMode, setViewMode] = useState('canvas'); // 'canvas', 'graph', 'overlay'
+  const [viewMode, setViewMode] = useState('canvas'); 
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [centralityMode, setCentralityMode] = useState('none');
   const [edgeTopology, setEdgeTopology] = useState(() => getInitialState('mandala-topology', { radial: true, ring: true }));
-  const [graphOpacity, setGraphOpacity] = useState(0.7);
+  const [graphOpacity, setGraphOpacity] = useState(0.8);
+  const [imageOpacity, setImageOpacity] = useState(1.0);
 
   const [showTable, setShowTable] = useState(false);
   const [tableData, setTableData] = useState([]);
@@ -60,13 +61,18 @@ const App = () => {
   const saveFile = (content, fileName, contentType) => { const a = document.createElement("a"); const file = new Blob([content], { type: contentType }); a.href = URL.createObjectURL(file); a.download = fileName; a.click(); };
   const handleCustomImage = (e) => { Array.from(e.target.files).forEach(file => { const r = new FileReader(); r.onload = (ev) => addMotif(ev.target.result); r.readAsDataURL(file); }); };
   const handleJsonInputChange = (e) => setJsonInput(e.target.value);
-  const downloadConnectionData = () => { /* Logic is in App.js usually, but we are using graph view export mostly. Placeholder. */ };
+  const downloadConnectionData = () => { /* Placeholder */ };
 
   return (
     <div className={`app-container ${isFullScreen ? 'fullscreen-mode' : ''}`}>
       <div className="canvas-wrapper">
+        
+        {/* Layer 0: White Backdrop */}
+        <div style={{ position: 'absolute', width: '100%', height: '100%', background: 'white', zIndex: 0 }} />
+
+        {/* Layer 1: Image Canvas */}
         {(viewMode === 'canvas' || viewMode === 'overlay') && (
-          <div style={{ position: 'absolute', width: '100%', height: '100%', zIndex: 0 }}>
+          <div style={{ position: 'absolute', width: '100%', height: '100%', zIndex: 1, opacity: imageOpacity }}>
              <Canvas 
                ref={viewMode === 'canvas' ? activeViewRef : null}
                motifs={motifs} gridOrder={gridOrder} showGrid={showGrid} 
@@ -75,17 +81,26 @@ const App = () => {
              />
           </div>
         )}
+
+        {/* Layer 2: Graph SVG */}
         {(viewMode === 'graph' || viewMode === 'overlay') && (
-           <div style={{ position: 'absolute', width: '100%', height: '100%', zIndex: 1, opacity: viewMode === 'overlay' ? graphOpacity : 1, pointerEvents: 'none' }}>
+           <div style={{ 
+             position: 'absolute', width: '100%', height: '100%', zIndex: 2, 
+             opacity: viewMode === 'overlay' ? graphOpacity : 1, 
+             // FIX: Only disable pointer events in Overlay mode. In Graph mode, we want clicks!
+             pointerEvents: viewMode === 'overlay' ? 'none' : 'auto' 
+           }}>
              <GraphView 
                ref={activeViewRef}
                motifs={motifs} gridOrder={gridOrder} width={800} height={800} showIDs={showIDs}
                isFullScreen={isFullScreen} toggleFullScreen={() => setIsFullScreen(!isFullScreen)}
-               centralityMode={centralityMode} edgeTopology={edgeTopology} transparentBackground={viewMode === 'overlay'}
+               centralityMode={centralityMode} edgeTopology={edgeTopology} 
+               transparentBackground={viewMode === 'overlay'}
              />
            </div>
         )}
       </div>
+      
       <Controls 
         viewMode={viewMode} setViewMode={setViewMode}
         gridOrder={gridOrder} setGridOrder={setGridOrder}
@@ -101,6 +116,7 @@ const App = () => {
         centralityMode={centralityMode} setCentralityMode={setCentralityMode}
         handleOpenTable={handleOpenTable} edgeTopology={edgeTopology} setEdgeTopology={setEdgeTopology}
         graphOpacity={graphOpacity} setGraphOpacity={setGraphOpacity}
+        imageOpacity={imageOpacity} setImageOpacity={setImageOpacity}
       />
       <CentralityTable isOpen={showTable} onClose={() => setShowTable(false)} data={tableData} />
     </div>

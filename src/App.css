@@ -32,8 +32,7 @@ body {
   display: flex;
   width: 100%;
   max-width: 1600px;
-  /* FIX: Prevent the app from squashing on small screens */
-  min-width: 1200px; 
+  min-width: 1200px; /* Prevent squashing */
   height: calc(100vh - 40px); 
   background: var(--bg-panel);
   box-shadow: var(--shadow);
@@ -44,7 +43,7 @@ body {
 }
 
 .canvas-wrapper {
-  flex: 1; /* Take all remaining space */
+  flex: 1; 
   display: flex;
   justify-content: center;
   align-items: center;
@@ -55,12 +54,11 @@ body {
   z-index: 1;
 }
 
-/* --- VIEW PANE (White Box) --- */
+/* --- VIEW PANE --- */
 .view-pane-wrapper {
   position: relative;
   width: 100%;
   height: 100%;
-  /* Ensure graph stays reasonable size */
   max-width: 800px; 
   max-height: 800px;
   aspect-ratio: 1 / 1; 
@@ -83,13 +81,11 @@ body {
 }
 
 /* =========================================
-   3. SIDEBAR / TOOLBOX (FIXED)
+   3. SIDEBAR / TOOLBOX
    ========================================= */
 #toolbox {
-  /* FIX: Explicitly forbid shrinking */
-  flex: 0 0 400px; 
+  flex: 0 0 400px; /* Strict width */
   width: 400px;
-  
   background: var(--bg-panel);
   border-left: 1px solid var(--border);
   padding: 20px;
@@ -123,9 +119,12 @@ body {
 
 .view-actions-row { display: flex; gap: 10px; margin-bottom: 5px; }
 
+/* FIX: Ensure buttons are clickable even if parent has pointer-events: none */
 .fullscreen-toolbar {
   position: absolute; top: 15px; right: 15px; z-index: 100; display: flex; gap: 10px;
+  pointer-events: auto !important; 
 }
+
 .float-btn {
   padding: 8px 12px; background: rgba(255, 255, 255, 0.95);
   border: 1px solid #ccc; border-radius: 5px; cursor: pointer;
@@ -242,7 +241,7 @@ legend { font-weight: 600; color: var(--secondary); padding: 0 5px; }
 .app-container.fullscreen-mode {
   max-width: none; width: 100vw; height: 100vh;
   border-radius: 0; padding: 0; margin: 0;
-  min-width: 0; /* Reset min-width in full screen */
+  min-width: 0;
 }
 .app-container.fullscreen-mode #toolbox { display: none; }
 .app-container.fullscreen-mode .canvas-wrapper { padding: 0; background: #fff; }
