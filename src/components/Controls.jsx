@@ -8,11 +8,16 @@ const Controls = ({
   showGrid, setShowGrid,
   globalInvert, setGlobalInvert,
   showIDs, setShowIDs,
+  
+  // Centrality & Analysis Props
+  centralityMode, setCentralityMode,
+  handleOpenTable, 
+  
   motifs, selectedId, setSelectedId,
   addMotif, updateMotif, deleteMotif, clearAllMotifs,
   handleCustomImage,
   downloadJSON, downloadConnectionData,
-  triggerViewDownload, toggleFullScreen, // Receive new functions
+  triggerViewDownload, toggleFullScreen,
   jsonInput, handleJsonInputChange, loadGraphFromInput
 }) => {
   
@@ -30,8 +35,18 @@ const Controls = ({
       <h2 className="toolbox-title">Mandala Controls</h2>
 
       <div className="view-toggle">
-        <button className={`toggle-btn ${viewMode === 'canvas' ? 'active' : ''}`} onClick={() => setViewMode('canvas')}>🎨 Image View</button>
-        <button className={`toggle-btn ${viewMode === 'graph' ? 'active' : ''}`} onClick={() => setViewMode('graph')}>🕸 Graph View</button>
+        <button 
+          className={`toggle-btn ${viewMode === 'canvas' ? 'active' : ''}`} 
+          onClick={() => setViewMode('canvas')}
+        >
+          🎨 Image View
+        </button>
+        <button 
+          className={`toggle-btn ${viewMode === 'graph' ? 'active' : ''}`} 
+          onClick={() => setViewMode('graph')}
+        >
+          🕸 Graph View
+        </button>
       </div>
       
       <fieldset>
@@ -47,26 +62,61 @@ const Controls = ({
           <label className="checkbox-label"><input type="checkbox" checked={globalInvert} onChange={e => setGlobalInvert(e.target.checked)} /> Invert BG</label>
           <label className="checkbox-label"><input type="checkbox" checked={showIDs} onChange={e => setShowIDs(e.target.checked)} /> Show IDs</label>
         </div>
+        
+        {/* ANALYSIS CONTROLS (Graph Only) */}
+        {viewMode === 'graph' && (
+          <div className="control-row" style={{ marginTop: '10px', borderTop: '1px solid #eee', paddingTop: '10px', flexWrap: 'wrap', gap: '8px' }}>
+             <label style={{ fontWeight: 'bold', color: '#2c3e50', width: '100%', fontSize: '0.9rem' }}>Network Analysis:</label>
+             <select 
+               className="styled-select" 
+               value={centralityMode} 
+               onChange={e => setCentralityMode(e.target.value)}
+               style={{ flex: 1, minWidth: '120px' }}
+             >
+               <option value="none">Heatmap: None</option>
+               <option value="degree">Degree</option>
+               <option value="closeness">Closeness</option>
+               <option value="betweenness">Betweenness</option>
+               <option value="eigenvector">Eigenvector</option>
+             </select>
+             
+             <button 
+               className="secondary-btn" 
+               style={{ width: 'auto', padding: '6px 12px', fontSize: '0.85rem' }}
+               onClick={handleOpenTable}
+             >
+               📊 Table
+             </button>
+          </div>
+        )}
       </fieldset>
 
-      {/* --- NEW: BUTTONS BELOW SETTINGS --- */}
+      {/* VIEW ACTIONS */}
       <div className="view-actions-row">
         <button className="secondary-btn" onClick={toggleFullScreen}>⤢ Full Screen</button>
         <button className="primary-btn" onClick={triggerViewDownload}>⬇ Save {viewMode === 'canvas' ? 'PNG' : 'SVG'}</button>
       </div>
 
       <fieldset className="graph-io-fieldset">
-        <legend>Data & Analysis</legend>
-        <button className="primary-btn" onClick={downloadJSON}>⬇ Save State JSON (Visual)</button>
-        <button className="download-btn" onClick={downloadConnectionData}>⬇ Download Connectivity (MATLAB)</button>
+        <legend>Data I/O</legend>
+        <div style={{ display: 'flex', gap: '5px', marginBottom: '8px' }}>
+            <button className="primary-btn" style={{ fontSize: '0.8rem', padding: '8px' }} onClick={downloadJSON}>⬇ JSON</button>
+            <button className="download-btn" style={{ fontSize: '0.8rem', padding: '8px' }} onClick={downloadConnectionData}>⬇ MATLAB</button>
+        </div>
         
         <div className="json-import-area">
-          <textarea className="json-textarea" placeholder="Paste State JSON here..." value={jsonInput} onChange={handleJsonInputChange} rows={2} />
+          <textarea 
+            className="json-textarea" 
+            placeholder="Paste JSON here..." 
+            value={jsonInput} 
+            onChange={handleJsonInputChange} 
+            rows={1} 
+          />
           <button className="secondary-btn" onClick={loadGraphFromInput} disabled={!jsonInput}>Load JSON</button>
         </div>
       </fieldset>
 
-      {/* ... Rest of Controls (Library, Active Motifs, Edit Panel, Modal) ... */}
+      {/* LIBRARY */}
       <fieldset>
         <div className="legend-row">
            <legend>Library</legend>
@@ -85,6 +135,7 @@ const Controls = ({
         </label>
       </fieldset>
 
+      {/* ACTIVE MOTIFS */}
       <fieldset>
         <div className="legend-row">
           <legend>Active Motifs ({motifs.length})</legend>
@@ -93,7 +144,8 @@ const Controls = ({
           )}
         </div>
         <div className="used-list">
-          {motifs.map(m => (
+          {motifs.length === 0 ? <div style={{padding:'10px', color:'#999', textAlign:'center', fontStyle:'italic'}}>No motifs added.</div> :
+            motifs.map(m => (
             <div key={m.id} className={`used-item ${selectedId === m.id ? 'active' : ''}`} onClick={() => setSelectedId(m.id)}>
               <img src={m.url} alt="" className="used-thumb"/>
               <span className="used-id">{m.id.slice(-4)}</span>
@@ -103,6 +155,7 @@ const Controls = ({
         </div>
       </fieldset>
 
+      {/* EDIT PANEL */}
       <div className={`edit-panel ${activeMotif ? 'panel-visible' : ''}`}>
       {activeMotif && (
         <fieldset className="highlight-fieldset">
@@ -112,6 +165,7 @@ const Controls = ({
           <SliderControl label="Rotation" value={activeMotif.config.rotation} min={-180} max={180} step={1} onChange={val => updateMotif(selectedId, { rotation: val })} />
           <SliderControl label="Size" value={activeMotif.config.scale} min={0.1} max={3} step={0.05} onChange={val => updateMotif(selectedId, { scale: val })} />
           <SliderControl label="Count" value={activeMotif.config.multiplicity} min={0} max={64} step={1} onChange={val => updateMotif(selectedId, { multiplicity: val })} />
+          
           <div className="toggles-row parameters-toggles">
              <label className="checkbox-label"><input type="checkbox" checked={activeMotif.config.flip} onChange={e => updateMotif(selectedId, { flip: e.target.checked })} /> Flip</label>
              <label className="checkbox-label"><input type="checkbox" checked={activeMotif.config.invert} onChange={e => updateMotif(selectedId, { invert: e.target.checked })} /> Invert</label>
@@ -120,6 +174,7 @@ const Controls = ({
         </fieldset>
       )}
       </div>
+
       <LibraryModal isOpen={showLibrary} onClose={() => setShowLibrary(false)} images={libraryImages} onSelect={handleModalSelect} />
     </div>
   );
