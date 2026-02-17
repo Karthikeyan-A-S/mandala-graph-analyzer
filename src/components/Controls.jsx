@@ -11,17 +11,17 @@ const Controls = ({
   centralityMode, setCentralityMode,
   handleOpenTable, 
   edgeTopology, setEdgeTopology,
-  
-  // Independent Opacity Props
   graphOpacity, setGraphOpacity,
   imageOpacity, setImageOpacity,
-
   motifs, selectedId, setSelectedId,
   addMotif, updateMotif, deleteMotif, clearAllMotifs,
   handleCustomImage,
   downloadJSON, downloadConnectionData,
   triggerViewDownload, toggleFullScreen,
-  jsonInput, handleJsonInputChange, loadGraphFromInput
+  jsonInput, handleJsonInputChange, loadGraphFromInput,
+  
+  // NEW PROP
+  handleFileUpload
 }) => {
   
   const libraryImages = getLibraryImages();
@@ -53,7 +53,6 @@ const Controls = ({
           <label className="checkbox-label"><input type="checkbox" checked={showIDs} onChange={e => setShowIDs(e.target.checked)} /> IDs</label>
         </div>
 
-        {/* --- DUAL OPACITY CONTROLS --- */}
         {viewMode === 'overlay' && (
           <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid #eee' }}>
             <div className="slider-row" style={{ marginBottom: '8px' }}>
@@ -92,7 +91,6 @@ const Controls = ({
         )}
       </fieldset>
 
-      {/* Rest of the controls (I/O, Library, etc.) remain standard */}
       <div className="view-actions-row">
         <button className="secondary-btn" onClick={toggleFullScreen}>⤢ Full Screen</button>
         <button className="primary-btn" onClick={triggerViewDownload}>⬇ Save {viewMode === 'canvas' ? 'PNG' : 'SVG'}</button>
@@ -102,11 +100,18 @@ const Controls = ({
         <legend>Data I/O</legend>
         <div style={{ display: 'flex', gap: '5px', marginBottom: '8px' }}>
             <button className="primary-btn" style={{ fontSize: '0.8rem', padding: '8px' }} onClick={downloadJSON}>⬇ JSON</button>
-            <button className="download-btn" style={{ fontSize: '0.8rem', padding: '8px' }} onClick={downloadConnectionData}>⬇ MATLAB</button>
+            <button className="download-btn" style={{ fontSize: '0.8rem', padding: '8px' }} onClick={downloadConnectionData}>⬇ Connectivity</button>
         </div>
+        
+        {/* NEW: Upload File Section */}
+        <label className="custom-file-btn" style={{ margin: '5px 0' }}>
+            <span>⬆ Upload JSON File</span>
+            <input type="file" accept=".json" onChange={handleFileUpload} hidden />
+        </label>
+        
         <div className="json-import-area">
-          <textarea className="json-textarea" placeholder="Paste JSON here..." value={jsonInput} onChange={handleJsonInputChange} rows={1} />
-          <button className="secondary-btn" onClick={loadGraphFromInput} disabled={!jsonInput}>Load JSON</button>
+          <textarea className="json-textarea" placeholder="Or paste JSON text here..." value={jsonInput} onChange={handleJsonInputChange} rows={1} />
+          <button className="secondary-btn" onClick={loadGraphFromInput} disabled={!jsonInput}>Load Text</button>
         </div>
       </fieldset>
 

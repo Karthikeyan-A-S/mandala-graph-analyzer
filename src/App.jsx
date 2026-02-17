@@ -57,20 +57,104 @@ const App = () => {
   };
 
   const downloadJSON = () => { const data = JSON.stringify({ gridOrder, globalInvert, motifs }, null, 2); saveFile(data, 'mandala.json', 'application/json'); };
-  const loadGraphFromInput = () => { try { const data = JSON.parse(jsonInput); if (data.motifs) setMotifs(data.motifs); if (data.gridOrder) setGridOrder(data.gridOrder); alert("Loaded!"); } catch (err) { alert("Invalid JSON"); } };
   const saveFile = (content, fileName, contentType) => { const a = document.createElement("a"); const file = new Blob([content], { type: contentType }); a.href = URL.createObjectURL(file); a.download = fileName; a.click(); };
   const handleCustomImage = (e) => { Array.from(e.target.files).forEach(file => { const r = new FileReader(); r.onload = (ev) => addMotif(ev.target.result); r.readAsDataURL(file); }); };
   const handleJsonInputChange = (e) => setJsonInput(e.target.value);
-  const downloadConnectionData = () => { /* Placeholder */ };
+
+  // --- NEW: SHARED LOADER LOGIC ---
+  const loadGraphData = (data) => {
+    if (data.motifs) setMotifs(data.motifs);
+    if (data.gridOrder) setGridOrder(data.gridOrder);
+    if (data.globalInvert !== undefined) setGlobalInvert(data.globalInvert);
+    alert("Graph loaded successfully!");
+  };
+
+  const loadGraphFromInput = () => {
+    try {
+      const data = JSON.parse(jsonInput);
+      loadGraphData(data);
+    } catch (err) {
+      alert("Invalid JSON text");
+    }
+  };
+
+  const handleFileUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const data = JSON.parse(ev.target.result);
+        loadGraphData(data);
+        // Optional: clear the input value so same file can be selected again
+        e.target.value = ''; 
+      } catch (err) {
+        alert("Error parsing JSON file");
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const downloadConnectionData = () => {
+    const nodeList = {}; const edgeList = []; let nodeCounter = 0;
+    const sortedMotifs = [...motifs].sort((a, b) => {
+        const rA = a.config.multiplicity === 0 ? 0 : a.config.radius;
+        const rB = b.config.multiplicity === 0 ? 0 : b.config.radius;
+        return rA - rB;
+    });
+
+    let previousLayerIds = [];
+    const centerIdx = sortedMotifs.findIndex(m => m.config.multiplicity === 0);
+    if (centerIdx !== -1) {
+        const m = sortedMotifs[centerIdx];
+        const id = `${m.id}-0`;
+        nodeList[id] = nodeCounter++; 
+        previousLayerIds = [id];
+        sortedMotifs.splice(centerIdx, 1);
+    } else {
+        nodeList['center'] = nodeCounter++; 
+        previousLayerIds = ['center'];
+    }
+
+    sortedMotifs.forEach((motif) => {
+        const currentLayerIds = [];
+        const totalNodes = Math.max(gridOrder * motif.config.multiplicity, 1);
+
+        for (let i = 0; i < totalNodes; i++) {
+            const internalId = `${motif.id}-${i}`;
+            nodeList[internalId] = nodeCounter++;
+            currentLayerIds.push(internalId);
+
+            if (edgeTopology.radial) {
+                const prevIndex = Math.floor(i * (previousLayerIds.length / totalNodes)) % previousLayerIds.length;
+                edgeList.push([nodeList[internalId], nodeList[previousLayerIds[prevIndex]]]);
+            }
+        }
+
+        if (edgeTopology.ring && currentLayerIds.length > 1) {
+            for (let i = 0; i < currentLayerIds.length; i++) {
+                const source = currentLayerIds[i];
+                const target = currentLayerIds[(i + 1) % currentLayerIds.length];
+                edgeList.push([nodeList[source], nodeList[target]]);
+            }
+        }
+        previousLayerIds = currentLayerIds;
+    });
+
+    const outputData = {
+        description: "Adjacency List (Nodes 0-indexed)",
+        topology_settings: edgeTopology,
+        node_count: nodeCounter,
+        edges: edgeList 
+    };
+
+    saveFile(JSON.stringify(outputData, null, 2), 'mandala_connectivity.json', 'application/json');
+  };
 
   return (
     <div className={`app-container ${isFullScreen ? 'fullscreen-mode' : ''}`}>
       <div className="canvas-wrapper">
-        
-        {/* Layer 0: White Backdrop */}
         <div style={{ position: 'absolute', width: '100%', height: '100%', background: 'white', zIndex: 0 }} />
-
-        {/* Layer 1: Image Canvas */}
         {(viewMode === 'canvas' || viewMode === 'overlay') && (
           <div style={{ position: 'absolute', width: '100%', height: '100%', zIndex: 1, opacity: imageOpacity }}>
              <Canvas 
@@ -81,26 +165,17 @@ const App = () => {
              />
           </div>
         )}
-
-        {/* Layer 2: Graph SVG */}
         {(viewMode === 'graph' || viewMode === 'overlay') && (
-           <div style={{ 
-             position: 'absolute', width: '100%', height: '100%', zIndex: 2, 
-             opacity: viewMode === 'overlay' ? graphOpacity : 1, 
-             // FIX: Only disable pointer events in Overlay mode. In Graph mode, we want clicks!
-             pointerEvents: viewMode === 'overlay' ? 'none' : 'auto' 
-           }}>
+           <div style={{ position: 'absolute', width: '100%', height: '100%', zIndex: 2, opacity: viewMode === 'overlay' ? graphOpacity : 1, pointerEvents: viewMode === 'overlay' ? 'none' : 'auto' }}>
              <GraphView 
                ref={activeViewRef}
                motifs={motifs} gridOrder={gridOrder} width={800} height={800} showIDs={showIDs}
                isFullScreen={isFullScreen} toggleFullScreen={() => setIsFullScreen(!isFullScreen)}
-               centralityMode={centralityMode} edgeTopology={edgeTopology} 
-               transparentBackground={viewMode === 'overlay'}
+               centralityMode={centralityMode} edgeTopology={edgeTopology} transparentBackground={viewMode === 'overlay'}
              />
            </div>
         )}
       </div>
-      
       <Controls 
         viewMode={viewMode} setViewMode={setViewMode}
         gridOrder={gridOrder} setGridOrder={setGridOrder}
@@ -117,6 +192,9 @@ const App = () => {
         handleOpenTable={handleOpenTable} edgeTopology={edgeTopology} setEdgeTopology={setEdgeTopology}
         graphOpacity={graphOpacity} setGraphOpacity={setGraphOpacity}
         imageOpacity={imageOpacity} setImageOpacity={setImageOpacity}
+        
+        // Pass the new handler
+        handleFileUpload={handleFileUpload}
       />
       <CentralityTable isOpen={showTable} onClose={() => setShowTable(false)} data={tableData} />
     </div>
