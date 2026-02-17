@@ -1,0 +1,331 @@
+/* =========================================
+   1. GLOBAL VARIABLES & RESET
+   ========================================= */
+:root {
+  --primary: #3498db; 
+  --secondary: #2c3e50; 
+  --bg-app: #f0f2f5; 
+  --bg-panel: #ffffff;
+  --border: #e1e4e8; 
+  --text: #333; 
+  --radius: 8px; 
+  --shadow: 0 12px 24px rgba(0,0,0,0.1);
+}
+
+body {
+  margin: 0;
+  font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  background: var(--bg-app);
+  color: var(--text);
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+/* =========================================
+   2. MAIN APP LAYOUT
+   ========================================= */
+.app-container {
+  display: flex;
+  width: 100%;
+  max-width: 1280px;
+  /* DYNAMIC HEIGHT: Fits screen minus padding, prevents scrolling/cutoff */
+  height: calc(100vh - 40px); 
+  background: var(--bg-panel);
+  box-shadow: var(--shadow);
+  border-radius: var(--radius);
+  overflow: hidden;
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.canvas-wrapper {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: #e9ecef;
+  padding: 20px;
+  overflow: hidden;
+  position: relative;
+  z-index: 1;
+}
+
+/* --- VIEW PANE (The White Box holding Canvas/Graph) --- */
+.view-pane-wrapper {
+  position: relative;
+  
+  /* RESPONSIVE SQUARE LOGIC */
+  width: 100%;
+  height: 100%;
+  
+  /* Cap the size so it doesn't get huge on big monitors */
+  max-width: 800px;
+  max-height: 800px;
+  
+  /* Force it to remain a square in normal mode */
+  aspect-ratio: 1 / 1; 
+  
+  background: white;
+  border-radius: var(--radius);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+/* Ensure Canvas/SVG fits the pane */
+.main-canvas-element, .main-graph-element {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+/* =========================================
+   3. SIDEBAR / TOOLBOX
+   ========================================= */
+#toolbox {
+  width: 380px;
+  background: var(--bg-panel);
+  border-left: 1px solid var(--border);
+  padding: 20px;
+  box-sizing: border-box;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  z-index: 2;
+}
+
+.toolbox-title {
+  text-align: center;
+  color: var(--secondary);
+  margin: 0 0 10px 0;
+  font-size: 1.5rem;
+}
+
+/* =========================================
+   4. UI COMPONENTS (Buttons, Inputs)
+   ========================================= */
+
+/* View Toggle (Image vs Graph) */
+.view-toggle {
+  display: flex; gap: 5px; padding: 4px; background: #eee; border-radius: var(--radius);
+}
+.toggle-btn {
+  flex: 1; padding: 8px; border: none; cursor: pointer; border-radius: 4px;
+  font-weight: 600; background: transparent; color: #666; transition: 0.2s;
+}
+.toggle-btn.active { 
+  background: var(--bg-panel); color: var(--primary); box-shadow: 0 2px 5px rgba(0,0,0,0.05); 
+}
+
+/* Fieldsets */
+fieldset {
+  border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 15px; margin: 0;
+}
+legend { font-weight: 600; color: var(--secondary); padding: 0 5px; }
+
+/* Control Rows */
+.control-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.styled-select { padding: 5px 10px; border-radius: 4px; border: 1px solid var(--border); }
+
+.toggles-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.checkbox-label { display: flex; align-items: center; font-size: 0.9rem; cursor: pointer; }
+.checkbox-label input { margin-right: 6px; }
+
+/* Sliders */
+.slider-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; font-size: 0.9rem; }
+.slider-label { width: 65px; font-weight: 500; }
+.styled-range { flex: 1; cursor: pointer; }
+.styled-number { width: 50px; padding: 4px; border: 1px solid var(--border); border-radius: 4px; text-align: center; }
+
+/* Standard Buttons */
+.primary-btn, .secondary-btn, .download-btn {
+  width: 100%; padding: 10px; border: none; border-radius: var(--radius);
+  cursor: pointer; font-weight: 600; transition: background 0.2s; font-size: 0.9rem;
+}
+.primary-btn { background: var(--primary); color: white; margin-bottom: 5px;}
+.primary-btn:hover { background: #2980b9; }
+.secondary-btn { background: var(--secondary); color: white; }
+.secondary-btn:disabled { background: #bdc3c7; cursor: not-allowed; }
+.download-btn { background: #27ae60; color: white; margin-bottom: 8px; }
+.download-btn:hover { background: #219150; }
+
+/* =========================================
+   5. LIBRARY GRID (Small Scroll Box)
+   ========================================= */
+.legend-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
+
+.view-all-btn { 
+  background: none; border: none; color: var(--primary); 
+  font-size: 0.85rem; font-weight: 600; cursor: pointer; padding: 0 5px; 
+}
+.view-all-btn:hover { text-decoration: underline; }
+
+.library-grid { 
+  display: grid; 
+  grid-template-columns: repeat(5, 1fr); 
+  gap: 6px; 
+  /* Fixed height scrollable box */
+  max-height: 160px; 
+  overflow-y: auto; 
+  padding: 4px;
+  background: #fdfdfd;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+.library-grid::-webkit-scrollbar { width: 6px; }
+.library-grid::-webkit-scrollbar-thumb { background-color: #ccc; border-radius: 3px; }
+
+.img-btn { 
+  border: 2px solid transparent; cursor: pointer; padding: 2px; 
+  background: #fff; border-radius: 4px; transition: 0.2s; 
+}
+.img-btn:hover { border-color: var(--primary); transform: scale(1.05); }
+.img-btn img { width: 100%; height: auto; display: block; }
+
+.custom-file-btn {
+  display: block; text-align: center; border: 2px dashed #ccc; color: #666;
+  padding: 8px; cursor: pointer; margin-top: 10px; border-radius: var(--radius); 
+  font-size: 0.9rem; transition: 0.2s;
+}
+.custom-file-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+/* =========================================
+   6. ACTIVE MOTIFS LIST
+   ========================================= */
+.used-list { max-height: 180px; overflow-y: auto; }
+.used-item { 
+  display: flex; align-items: center; padding: 6px 8px; 
+  border: 1px solid var(--border); border-radius: 6px; margin-bottom: 5px; 
+  cursor: pointer; transition: 0.2s; background: #fff;
+}
+.used-item.active { background: #e3f2fd; border-color: var(--primary); }
+.used-thumb { width: 30px; height: 30px; margin-right: 10px; object-fit: contain; background: #eee; border-radius: 4px; }
+.used-id { font-family: monospace; font-size: 0.85rem; color: #666; flex: 1; }
+.delete-btn { border: none; background: none; color: #aaa; cursor: pointer; font-size: 1.3rem; padding: 0 5px; }
+.delete-btn:hover { color: #e74c3c; }
+
+/* =========================================
+   7. EDIT PANEL & GRAPH I/O
+   ========================================= */
+.edit-panel { opacity: 0; visibility: hidden; transition: all 0.3s; height: 0; overflow: hidden; }
+.edit-panel.panel-visible { opacity: 1; visibility: visible; height: auto; overflow: visible; }
+.highlight-fieldset { border-color: var(--primary); background: #f8fbff; }
+.parameters-toggles { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+.color-picker { padding: 0; border: none; background: none; height: 25px; width: 40px; cursor: pointer; }
+
+.graph-io-fieldset { background: #f4f9ff; border-color: #d0e3ff; }
+.json-textarea { width: 100%; box-sizing: border-box; margin: 5px 0; padding: 8px; border: 1px solid var(--border); border-radius: 4px; font-family: monospace; font-size: 0.85rem; resize: vertical; }
+
+/* =========================================
+   8. POPUP MODAL (View All)
+   ========================================= */
+.modal-overlay {
+  position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+  background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(2px);
+  /* HIGH Z-INDEX to sit above floating buttons */
+  z-index: 20000; 
+  display: flex; justify-content: center; align-items: center;
+}
+.modal-content {
+  background: var(--bg-panel); width: 80%; max-width: 900px; height: 80%;
+  border-radius: var(--radius); box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+  display: flex; flex-direction: column; overflow: hidden; animation: fadeIn 0.2s ease-out;
+}
+.modal-header { padding: 15px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+.modal-header h3 { margin: 0; color: var(--secondary); }
+.close-modal-btn { background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #999; }
+.close-modal-btn:hover { color: #333; }
+.modal-body { flex: 1; overflow-y: auto; padding: 20px; background: #f9f9f9; }
+.modal-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 15px; }
+.modal-item { background: white; border: 1px solid var(--border); border-radius: var(--radius); padding: 5px; cursor: pointer; display: flex; align-items: center; justify-content: center; aspect-ratio: 1; }
+.modal-item:hover { transform: scale(1.05); box-shadow: 0 4px 8px rgba(0,0,0,0.1); border-color: var(--primary); }
+.modal-item img { max-width: 100%; max-height: 100%; object-fit: contain; }
+
+@keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+
+/* =========================================
+   9. FULL SCREEN MODE OVERRIDES
+   ========================================= */
+/* When .fullscreen-mode is applied to .app-container */
+
+.app-container.fullscreen-mode {
+  max-width: none;
+  width: 100vw;
+  height: 100vh;
+  border-radius: 0;
+  padding: 0;
+  margin: 0;
+}
+
+/* Hide Sidebar */
+.app-container.fullscreen-mode #toolbox {
+  display: none;
+}
+
+/* Remove Padding from Wrapper */
+.app-container.fullscreen-mode .canvas-wrapper {
+  padding: 0;
+  background: #fff;
+}
+
+/* Expand the View Pane to Full Screen (Reset max-width/height/aspect-ratio) */
+.app-container.fullscreen-mode .view-pane-wrapper {
+  width: 100vw;
+  height: 100vh;
+  max-width: none;
+  max-height: none;
+  aspect-ratio: auto;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* Ensure Canvas/SVG scale up */
+.app-container.fullscreen-mode .main-canvas-element,
+.app-container.fullscreen-mode .main-graph-element {
+  width: 100%;
+  height: 100%;
+}
+/* ... [KEEP ALL PREVIOUS CSS] ... */
+
+/* --- NEW: View Actions Row (In Sidebar) --- */
+.view-actions-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+/* --- NEW: Fullscreen Floating Toolbar (In View) --- */
+.fullscreen-toolbar {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  z-index: 100;
+  display: flex;
+  gap: 10px;
+}
+
+.float-btn {
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: bold;
+  color: #333;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+  transition: 0.2s;
+}
+.float-btn:hover {
+  background: #3498db;
+  color: white;
+  border-color: #3498db;
+}
