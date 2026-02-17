@@ -10,10 +10,8 @@ const Controls = ({
   showIDs, setShowIDs,
   centralityMode, setCentralityMode,
   handleOpenTable, 
-  
-  // NEW: Topology Props
   edgeTopology, setEdgeTopology,
-
+  graphOpacity, setGraphOpacity,
   motifs, selectedId, setSelectedId,
   addMotif, updateMotif, deleteMotif, clearAllMotifs,
   handleCustomImage,
@@ -25,19 +23,16 @@ const Controls = ({
   const libraryImages = getLibraryImages();
   const activeMotif = motifs.find(m => m.id === selectedId);
   const [showLibrary, setShowLibrary] = useState(false);
-
-  const handleModalSelect = (url) => {
-    addMotif(url);
-    setShowLibrary(false);
-  };
+  const handleModalSelect = (url) => { addMotif(url); setShowLibrary(false); };
 
   return (
     <div id="toolbox">
       <h2 className="toolbox-title">Mandala Controls</h2>
 
       <div className="view-toggle">
-        <button className={`toggle-btn ${viewMode === 'canvas' ? 'active' : ''}`} onClick={() => setViewMode('canvas')}>🎨 Image View</button>
-        <button className={`toggle-btn ${viewMode === 'graph' ? 'active' : ''}`} onClick={() => setViewMode('graph')}>🕸 Graph View</button>
+        <button className={`toggle-btn ${viewMode === 'canvas' ? 'active' : ''}`} onClick={() => setViewMode('canvas')}>🎨 Image</button>
+        <button className={`toggle-btn ${viewMode === 'overlay' ? 'active' : ''}`} onClick={() => setViewMode('overlay')}>👁 Overlay</button>
+        <button className={`toggle-btn ${viewMode === 'graph' ? 'active' : ''}`} onClick={() => setViewMode('graph')}>🕸 Graph</button>
       </div>
       
       <fieldset>
@@ -51,56 +46,36 @@ const Controls = ({
         <div className="toggles-row">
           <label className="checkbox-label"><input type="checkbox" checked={showGrid} onChange={e => setShowGrid(e.target.checked)} /> Grid</label>
           <label className="checkbox-label"><input type="checkbox" checked={globalInvert} onChange={e => setGlobalInvert(e.target.checked)} /> Invert BG</label>
-          <label className="checkbox-label"><input type="checkbox" checked={showIDs} onChange={e => setShowIDs(e.target.checked)} /> Show IDs</label>
+          <label className="checkbox-label"><input type="checkbox" checked={showIDs} onChange={e => setShowIDs(e.target.checked)} /> IDs</label>
         </div>
 
-        {/* --- NEW: GRAPH TOPOLOGY CONTROL --- */}
-        {viewMode === 'graph' && (
+        {viewMode === 'overlay' && (
+          <div className="slider-row" style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid #eee' }}>
+            <label className="slider-label" style={{width:'80px'}}>Alpha:</label>
+            <input type="range" className="styled-range" min={0} max={1} step={0.05} value={graphOpacity} onChange={e => setGraphOpacity(Number(e.target.value))} />
+          </div>
+        )}
+
+        {(viewMode === 'graph' || viewMode === 'overlay') && (
           <>
             <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid #eee' }}>
               <legend style={{fontSize:'0.85rem', color:'#7f8c8d', marginBottom:'5px', display:'block'}}>Graph Topology</legend>
               <div className="toggles-row">
-                <label className="checkbox-label" title="Connect layers inwards/outwards">
-                  <input 
-                    type="checkbox" 
-                    checked={edgeTopology?.radial} 
-                    onChange={e => setEdgeTopology({...edgeTopology, radial: e.target.checked})} 
-                  /> 
-                  Radial Edges
-                </label>
-                <label className="checkbox-label" title="Connect neighbors in same ring">
-                  <input 
-                    type="checkbox" 
-                    checked={edgeTopology?.ring} 
-                    onChange={e => setEdgeTopology({...edgeTopology, ring: e.target.checked})} 
-                  /> 
-                  Ring Edges
-                </label>
+                <label className="checkbox-label"><input type="checkbox" checked={edgeTopology?.radial} onChange={e => setEdgeTopology({...edgeTopology, radial: e.target.checked})} /> Radial</label>
+                <label className="checkbox-label"><input type="checkbox" checked={edgeTopology?.ring} onChange={e => setEdgeTopology({...edgeTopology, ring: e.target.checked})} /> Ring</label>
               </div>
             </div>
 
             <div className="control-row" style={{ marginTop: '10px', borderTop: '1px solid #eee', paddingTop: '10px', flexWrap: 'wrap', gap: '8px' }}>
                <label style={{ fontWeight: 'bold', color: '#2c3e50', width: '100%', fontSize: '0.9rem' }}>Network Analysis:</label>
-               <select 
-                 className="styled-select" 
-                 value={centralityMode} 
-                 onChange={e => setCentralityMode(e.target.value)}
-                 style={{ flex: 1, minWidth: '120px' }}
-               >
+               <select className="styled-select" value={centralityMode} onChange={e => setCentralityMode(e.target.value)} style={{ flex: 1, minWidth: '120px' }}>
                  <option value="none">Heatmap: None</option>
                  <option value="degree">Degree</option>
                  <option value="closeness">Closeness</option>
                  <option value="betweenness">Betweenness</option>
                  <option value="eigenvector">Eigenvector</option>
                </select>
-               
-               <button 
-                 className="secondary-btn" 
-                 style={{ width: 'auto', padding: '6px 12px', fontSize: '0.85rem' }}
-                 onClick={handleOpenTable}
-               >
-                 📊 Table
-               </button>
+               <button className="secondary-btn" style={{ width: 'auto', padding: '6px 12px', fontSize: '0.85rem' }} onClick={handleOpenTable}>📊 Table</button>
             </div>
           </>
         )}
@@ -123,7 +98,6 @@ const Controls = ({
         </div>
       </fieldset>
 
-      {/* Library, Active Motifs, Edit Panel ... (No Changes) */}
       <fieldset>
         <div className="legend-row">
            <legend>Library</legend>
@@ -131,23 +105,16 @@ const Controls = ({
         </div>
         <div className="library-grid">
           {libraryImages.map((url, idx) => (
-            <button key={idx} className="img-btn" onClick={() => addMotif(url)}>
-              <img src={url} alt="motif" loading="lazy" />
-            </button>
+            <button key={idx} className="img-btn" onClick={() => addMotif(url)}><img src={url} alt="motif" loading="lazy" /></button>
           ))}
         </div>
-        <label className="custom-file-btn">
-          <span>+ Upload Custom Image</span>
-          <input type="file" accept="image/*" multiple onChange={handleCustomImage} hidden />
-        </label>
+        <label className="custom-file-btn"><span>+ Upload Custom Image</span><input type="file" accept="image/*" multiple onChange={handleCustomImage} hidden /></label>
       </fieldset>
 
       <fieldset>
         <div className="legend-row">
           <legend>Active Motifs ({motifs.length})</legend>
-          {motifs.length > 0 && (
-            <button className="view-all-btn" style={{ color: '#e74c3c' }} onClick={clearAllMotifs}>Clear All</button>
-          )}
+          {motifs.length > 0 && <button className="view-all-btn" style={{ color: '#e74c3c' }} onClick={clearAllMotifs}>Clear All</button>}
         </div>
         <div className="used-list">
           {motifs.map(m => (

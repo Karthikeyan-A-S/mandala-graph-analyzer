@@ -11,8 +11,8 @@ const getHeatmapColor = (score, maxScore) => {
 const GraphView = forwardRef(({ 
   motifs, gridOrder, width = 800, height = 800, 
   showIDs, isFullScreen, toggleFullScreen, centralityMode,
-  // NEW PROP
-  edgeTopology = { radial: true, ring: true }
+  edgeTopology = { radial: true, ring: true },
+  transparentBackground = false // NEW PROP
 }, ref) => {
   
   const svgRef = useRef(null);
@@ -45,6 +45,12 @@ const GraphView = forwardRef(({
     let previousLayerNodes = [];
     const centerMotifIndex = sortedMotifs.findIndex(m => m.config.multiplicity === 0);
     
+    // --- NODE GENERATION (Same Math as Canvas) ---
+    // Canvas Math: radius * (500*scale - 50*scale)
+    // Graph Math:  radius * ((minDim/2) - 50)
+    // If minDim=1000, half=500. 500-50=450. Matches perfectly.
+    const maxRadiusPx = (Math.min(viewWidth, viewHeight) / 2) - 50;
+
     if (centerMotifIndex !== -1) {
         const centerMotif = sortedMotifs[centerMotifIndex];
         const rootNode = {
@@ -63,8 +69,6 @@ const GraphView = forwardRef(({
         addNode(abstractCenter);
         previousLayerNodes = [abstractCenter];
     }
-
-    const maxRadiusPx = (Math.min(viewWidth, viewHeight) / 2) - 50;
 
     sortedMotifs.forEach((motif, idx) => {
       const { radius, angle, multiplicity, color, scale } = motif.config;
@@ -95,7 +99,6 @@ const GraphView = forwardRef(({
           if (dist < minDist) { minDist = dist; closestPrev = prevNode; }
         });
         
-        // --- CONDITIONAL RADIAL EDGES ---
         if (edgeTopology.radial) {
             addEdge(nodeId, closestPrev.id, { 
                 key: `e-${nodeId}-${closestPrev.id}`, 
@@ -104,7 +107,6 @@ const GraphView = forwardRef(({
         }
       }
       
-      // --- CONDITIONAL RING EDGES ---
       if (edgeTopology.ring && currentLayerNodes.length > 1) {
         for (let i = 0; i < currentLayerNodes.length; i++) {
           const n1 = currentLayerNodes[i];
@@ -123,14 +125,12 @@ const GraphView = forwardRef(({
     if (centralityMode !== 'none') {
         const nodeIds = allNodes.map(n => n.id);
         let scores = {};
-        
         if (centralityMode === 'degree') scores = computeDegree(adjacency, nodeIds);
         else if (centralityMode === 'closeness') scores = computeCloseness(adjacency, nodeIds);
         else if (centralityMode === 'betweenness') scores = computeBetweenness(adjacency, nodeIds);
         else if (centralityMode === 'eigenvector') scores = computeEigenvector(adjacency, nodeIds);
 
         const maxScore = Math.max(...Object.values(scores)) || 1;
-
         allNodes.forEach(n => {
             const score = scores[n.id] || 0;
             n.color = getHeatmapColor(score, maxScore);
@@ -140,7 +140,7 @@ const GraphView = forwardRef(({
     }
 
     setGraphData({ nodes: allNodes, edges: allEdges });
-  }, [motifs, gridOrder, viewWidth, viewHeight, centralityMode, edgeTopology]); // Add edgeTopology dependency
+  }, [motifs, gridOrder, viewWidth, viewHeight, centralityMode, edgeTopology]);
 
   const getColor = (i) => ['#3498db', '#f1c40f', '#9b59b6', '#e67e22', '#1abc9c', '#e74c3c'][i % 6];
 
@@ -171,6 +171,7 @@ const GraphView = forwardRef(({
 
   return (
     <div className="view-pane-wrapper">
+      {/* If transparentBackground is true (Overlay Mode), DO NOT render the white rect */}
       {isFullScreen && (
         <div className="fullscreen-toolbar">
            <button onClick={toggleFullScreen} className="float-btn">Exit Full Screen</button>
@@ -178,9 +179,12 @@ const GraphView = forwardRef(({
         </div>
       )}
       <svg ref={svgRef} width={viewWidth} height={viewHeight} viewBox={`0 0 ${viewWidth} ${viewHeight}`} className="main-graph-element">
-        <rect width="100%" height="100%" fill="white" />
+        
+        {/* HIDE WHITE BACKGROUND IN OVERLAY MODE */}
+        {!transparentBackground && <rect width="100%" height="100%" fill="white" />}
+        
         {graphData.edges.map((e, i) => (
-          <line key={i} x1={e.x1} y1={e.y1} x2={e.x2} y2={e.y2} stroke="#777" strokeWidth={e.isRing ? 1 : 1.5} opacity={0.5} />
+          <line key={i} x1={e.x1} y1={e.y1} x2={e.x2} y2={e.y2} stroke="#777" strokeWidth={e.isRing ? 1 : 1.5} opacity={0.6} />
         ))}
         {graphData.nodes.map((n) => (
           <g key={n.id} transform={`translate(${n.x},${n.y})`}>
