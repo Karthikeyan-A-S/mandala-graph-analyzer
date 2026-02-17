@@ -13,10 +13,12 @@ const App = () => {
     return defaultValue;
   };
 
-  const [viewMode, setViewMode] = useState('canvas'); 
+  const [viewMode, setViewMode] = useState('canvas'); // 'canvas', 'graph', 'overlay'
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [centralityMode, setCentralityMode] = useState('none');
   const [edgeTopology, setEdgeTopology] = useState(() => getInitialState('mandala-topology', { radial: true, ring: true }));
+  
+  // INDEPENDENT OPACITY STATES
   const [graphOpacity, setGraphOpacity] = useState(0.8);
   const [imageOpacity, setImageOpacity] = useState(1.0);
 
@@ -41,11 +43,22 @@ const App = () => {
     localStorage.setItem('mandala-topology', JSON.stringify(edgeTopology));
   }, [gridOrder, showGrid, globalInvert, showIDs, motifs, edgeTopology]);
 
+  // --- ACTIONS ---
   const addMotif = (url) => {
     const newId = Date.now().toString();
-    const newMotif = { id: newId, url, config: { radius: 0.5, angle: 0, rotation: 0, scale: 0.5, multiplicity: 1, flip: false, invert: false, color: '#000000' } };
-    setMotifs([...motifs, newMotif]); setSelectedId(newId);
+    const newMotif = { 
+        id: newId, 
+        url, 
+        config: { 
+            radius: 0.5, angle: 0, rotation: 0, scale: 0.5, 
+            multiplicity: 1, flip: false, invert: false, color: '#000000',
+            isCenter: false 
+        } 
+    };
+    setMotifs([...motifs, newMotif]); 
+    setSelectedId(newId);
   };
+
   const updateMotif = (id, newConfig) => setMotifs(motifs.map(m => m.id === id ? { ...m, config: { ...m.config, ...newConfig } } : m));
   const deleteMotif = (id) => { setMotifs(motifs.filter(m => m.id !== id)); if (selectedId === id) setSelectedId(null); };
   const clearAllMotifs = () => { if (window.confirm("Clear all?")) { setMotifs([]); setSelectedId(null); } };
@@ -56,12 +69,31 @@ const App = () => {
     if (activeViewRef.current && activeViewRef.current.getData) { setTableData(activeViewRef.current.getData()); setShowTable(true); }
   };
 
-  const downloadJSON = () => { const data = JSON.stringify({ gridOrder, globalInvert, motifs }, null, 2); saveFile(data, 'mandala.json', 'application/json'); };
-  const saveFile = (content, fileName, contentType) => { const a = document.createElement("a"); const file = new Blob([content], { type: contentType }); a.href = URL.createObjectURL(file); a.download = fileName; a.click(); };
-  const handleCustomImage = (e) => { Array.from(e.target.files).forEach(file => { const r = new FileReader(); r.onload = (ev) => addMotif(ev.target.result); r.readAsDataURL(file); }); };
+  // --- DATA I/O ---
+  const saveFile = (content, fileName, contentType) => { 
+      const a = document.createElement("a"); 
+      const file = new Blob([content], { type: contentType }); 
+      a.href = URL.createObjectURL(file); 
+      a.download = fileName; 
+      a.click(); 
+  };
+
+  const downloadJSON = () => { 
+      const data = JSON.stringify({ gridOrder, globalInvert, motifs }, null, 2); 
+      saveFile(data, 'mandala.json', 'application/json'); 
+  };
+
+  const handleCustomImage = (e) => { 
+      Array.from(e.target.files).forEach(file => { 
+          const r = new FileReader(); 
+          r.onload = (ev) => addMotif(ev.target.result); 
+          r.readAsDataURL(file); 
+      }); 
+  };
+  
   const handleJsonInputChange = (e) => setJsonInput(e.target.value);
 
-  // --- NEW: SHARED LOADER LOGIC ---
+  // Shared Loader
   const loadGraphData = (data) => {
     if (data.motifs) setMotifs(data.motifs);
     if (data.gridOrder) setGridOrder(data.gridOrder);
@@ -86,8 +118,7 @@ const App = () => {
       try {
         const data = JSON.parse(ev.target.result);
         loadGraphData(data);
-        // Optional: clear the input value so same file can be selected again
-        e.target.value = ''; 
+        e.target.value = ''; // Reset
       } catch (err) {
         alert("Error parsing JSON file");
       }
@@ -95,54 +126,68 @@ const App = () => {
     reader.readAsText(file);
   };
 
+  // --- CONNECTIVITY EXPORT (STRICT LAYER LOGIC) ---
   const downloadConnectionData = () => {
-    const nodeList = {}; const edgeList = []; let nodeCounter = 0;
-    const sortedMotifs = [...motifs].sort((a, b) => {
-        const rA = a.config.multiplicity === 0 ? 0 : a.config.radius;
-        const rB = b.config.multiplicity === 0 ? 0 : b.config.radius;
-        return rA - rB;
+    const nodeList = {}; 
+    const edgeList = []; 
+    let nodeCounter = 0;
+    
+    // 1. Separate & Sort
+    const centerMotifs = motifs.filter(m => m.config.isCenter);
+    const ringMotifs = motifs.filter(m => !m.config.isCenter).sort((a, b) => a.config.radius - b.config.radius);
+
+    // 2. Group Ring Motifs by Radius (Layers)
+    const layers = [];
+    ringMotifs.forEach(m => {
+        const existingLayer = layers.find(l => Math.abs(l.radius - m.config.radius) < 0.01);
+        if (existingLayer) existingLayer.motifs.push(m);
+        else layers.push({ radius: m.config.radius, motifs: [m] });
     });
 
     let previousLayerIds = [];
-    const centerIdx = sortedMotifs.findIndex(m => m.config.multiplicity === 0);
-    if (centerIdx !== -1) {
-        const m = sortedMotifs[centerIdx];
-        const id = `${m.id}-0`;
-        nodeList[id] = nodeCounter++; 
-        previousLayerIds = [id];
-        sortedMotifs.splice(centerIdx, 1);
-    } else {
-        nodeList['center'] = nodeCounter++; 
-        previousLayerIds = ['center'];
-    }
 
-    sortedMotifs.forEach((motif) => {
-        const currentLayerIds = [];
-        const totalNodes = Math.max(gridOrder * motif.config.multiplicity, 1);
+    // 3. Center Node (Layer 0)
+    // Always create one center node if any center motif exists (or abstract center)
+    const centerId = 'center-node';
+    nodeList[centerId] = nodeCounter++;
+    previousLayerIds = [centerId];
 
-        for (let i = 0; i < totalNodes; i++) {
-            const internalId = `${motif.id}-${i}`;
-            nodeList[internalId] = nodeCounter++;
-            currentLayerIds.push(internalId);
+    // 4. Process Layers
+    layers.forEach((layer) => {
+        const currentLayerIds = []; 
 
-            if (edgeTopology.radial) {
-                const prevIndex = Math.floor(i * (previousLayerIds.length / totalNodes)) % previousLayerIds.length;
-                edgeList.push([nodeList[internalId], nodeList[previousLayerIds[prevIndex]]]);
+        layer.motifs.forEach((motif) => {
+            const currentMotifIds = [];
+            const totalNodes = Math.max(gridOrder * motif.config.multiplicity, 1);
+
+            for (let i = 0; i < totalNodes; i++) {
+                const internalId = `${motif.id}-${i}`;
+                nodeList[internalId] = nodeCounter++;
+                currentMotifIds.push(internalId);
+                currentLayerIds.push(internalId); // Add to the "Pool" for the next layer
+
+                // RADIAL: Connect to Previous Layer (Inner Ring)
+                // Do NOT connect to sibling motifs in the same radius layer
+                if (edgeTopology.radial) {
+                    const prevIndex = Math.floor(i * (previousLayerIds.length / totalNodes)) % previousLayerIds.length;
+                    edgeList.push([nodeList[internalId], nodeList[previousLayerIds[prevIndex]]]);
+                }
             }
-        }
 
-        if (edgeTopology.ring && currentLayerIds.length > 1) {
-            for (let i = 0; i < currentLayerIds.length; i++) {
-                const source = currentLayerIds[i];
-                const target = currentLayerIds[(i + 1) % currentLayerIds.length];
-                edgeList.push([nodeList[source], nodeList[target]]);
+            // RING: Connect Neighbors (Siblings in same motif)
+            if (edgeTopology.ring && currentMotifIds.length > 1) {
+                for (let i = 0; i < currentMotifIds.length; i++) {
+                    edgeList.push([nodeList[currentMotifIds[i]], nodeList[currentMotifIds[(i + 1) % currentMotifIds.length]]]);
+                }
             }
-        }
+        });
+
+        // The "Previous Layer" for the NEXT outer ring becomes THIS entire combined set of nodes
         previousLayerIds = currentLayerIds;
     });
 
     const outputData = {
-        description: "Adjacency List (Nodes 0-indexed)",
+        description: "Adjacency List (Center Merged, Layer-Grouped)",
         topology_settings: edgeTopology,
         node_count: nodeCounter,
         edges: edgeList 
@@ -154,9 +199,16 @@ const App = () => {
   return (
     <div className={`app-container ${isFullScreen ? 'fullscreen-mode' : ''}`}>
       <div className="canvas-wrapper">
+        
+        {/* Layer 0: White Backdrop (Crucial for Image Opacity) */}
         <div style={{ position: 'absolute', width: '100%', height: '100%', background: 'white', zIndex: 0 }} />
+
+        {/* Layer 1: Image Canvas */}
         {(viewMode === 'canvas' || viewMode === 'overlay') && (
-          <div style={{ position: 'absolute', width: '100%', height: '100%', zIndex: 1, opacity: imageOpacity }}>
+          <div style={{ 
+            position: 'absolute', width: '100%', height: '100%', zIndex: 1,
+            opacity: imageOpacity // Controls ONLY Image
+          }}>
              <Canvas 
                ref={viewMode === 'canvas' ? activeViewRef : null}
                motifs={motifs} gridOrder={gridOrder} showGrid={showGrid} 
@@ -165,17 +217,33 @@ const App = () => {
              />
           </div>
         )}
+
+        {/* Layer 2: Graph SVG */}
         {(viewMode === 'graph' || viewMode === 'overlay') && (
-           <div style={{ position: 'absolute', width: '100%', height: '100%', zIndex: 2, opacity: viewMode === 'overlay' ? graphOpacity : 1, pointerEvents: viewMode === 'overlay' ? 'none' : 'auto' }}>
+           <div style={{ 
+             position: 'absolute', width: '100%', height: '100%', zIndex: 2, 
+             opacity: viewMode === 'overlay' ? graphOpacity : 1, // Controls ONLY Graph
+             pointerEvents: viewMode === 'overlay' ? 'none' : 'auto' // Click-through in overlay
+           }}>
              <GraphView 
                ref={activeViewRef}
-               motifs={motifs} gridOrder={gridOrder} width={800} height={800} showIDs={showIDs}
+               motifs={motifs} gridOrder={gridOrder} showIDs={showIDs}
                isFullScreen={isFullScreen} toggleFullScreen={() => setIsFullScreen(!isFullScreen)}
-               centralityMode={centralityMode} edgeTopology={edgeTopology} transparentBackground={viewMode === 'overlay'}
+               centralityMode={centralityMode} edgeTopology={edgeTopology} 
+               transparentBackground={viewMode === 'overlay'}
              />
            </div>
         )}
+        
+        {/* Full Screen Controls */}
+        {isFullScreen && (
+          <div className="fullscreen-toolbar" style={{ pointerEvents: 'auto' }}>
+            <button onClick={() => setIsFullScreen(false)} className="float-btn">Exit Full Screen</button>
+            <button onClick={triggerViewDownload} className="float-btn">⬇ Save {viewMode === 'canvas' ? 'PNG' : 'SVG'}</button>
+          </div>
+        )}
       </div>
+      
       <Controls 
         viewMode={viewMode} setViewMode={setViewMode}
         gridOrder={gridOrder} setGridOrder={setGridOrder}
@@ -192,8 +260,6 @@ const App = () => {
         handleOpenTable={handleOpenTable} edgeTopology={edgeTopology} setEdgeTopology={setEdgeTopology}
         graphOpacity={graphOpacity} setGraphOpacity={setGraphOpacity}
         imageOpacity={imageOpacity} setImageOpacity={setImageOpacity}
-        
-        // Pass the new handler
         handleFileUpload={handleFileUpload}
       />
       <CentralityTable isOpen={showTable} onClose={() => setShowTable(false)} data={tableData} />

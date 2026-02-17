@@ -19,8 +19,6 @@ const Controls = ({
   downloadJSON, downloadConnectionData,
   triggerViewDownload, toggleFullScreen,
   jsonInput, handleJsonInputChange, loadGraphFromInput,
-  
-  // NEW PROP
   handleFileUpload
 }) => {
   
@@ -102,13 +100,10 @@ const Controls = ({
             <button className="primary-btn" style={{ fontSize: '0.8rem', padding: '8px' }} onClick={downloadJSON}>⬇ JSON</button>
             <button className="download-btn" style={{ fontSize: '0.8rem', padding: '8px' }} onClick={downloadConnectionData}>⬇ Connectivity</button>
         </div>
-        
-        {/* NEW: Upload File Section */}
         <label className="custom-file-btn" style={{ margin: '5px 0' }}>
             <span>⬆ Upload JSON File</span>
             <input type="file" accept=".json" onChange={handleFileUpload} hidden />
         </label>
-        
         <div className="json-import-area">
           <textarea className="json-textarea" placeholder="Or paste JSON text here..." value={jsonInput} onChange={handleJsonInputChange} rows={1} />
           <button className="secondary-btn" onClick={loadGraphFromInput} disabled={!jsonInput}>Load Text</button>
@@ -148,11 +143,43 @@ const Controls = ({
       {activeMotif && (
         <fieldset className="highlight-fieldset">
           <legend>Edit: {activeMotif.id.slice(-4)}</legend>
-          <SliderControl label="Radius" value={activeMotif.config.radius} min={0} max={1} step={0.01} onChange={val => updateMotif(selectedId, { radius: val })} />
-          <SliderControl label="Angle" value={activeMotif.config.angle} min={-180} max={180} step={1} onChange={val => updateMotif(selectedId, { angle: val })} />
+          
+          {/* --- NEW CENTER TOGGLE --- */}
+          <div style={{ marginBottom: '10px', paddingBottom: '10px', borderBottom: '1px solid #eee' }}>
+             <label className="checkbox-label" style={{ fontWeight: 'bold', color: '#2c3e50' }}>
+               <input 
+                 type="checkbox" 
+                 checked={!!activeMotif.config.isCenter} 
+                 onChange={e => updateMotif(selectedId, { isCenter: e.target.checked })} 
+               /> 
+               Set as Center Element
+             </label>
+          </div>
+
+          {/* Sliders - Disabled if isCenter is true */}
+          <SliderControl 
+            label="Radius" value={activeMotif.config.isCenter ? 0 : activeMotif.config.radius} 
+            min={0} max={1} step={0.01} 
+            disabled={activeMotif.config.isCenter}
+            onChange={val => updateMotif(selectedId, { radius: val })} 
+          />
+          <SliderControl 
+            label="Angle" value={activeMotif.config.isCenter ? 0 : activeMotif.config.angle} 
+            min={-180} max={180} step={1} 
+            disabled={activeMotif.config.isCenter}
+            onChange={val => updateMotif(selectedId, { angle: val })} 
+          />
           <SliderControl label="Rotation" value={activeMotif.config.rotation} min={-180} max={180} step={1} onChange={val => updateMotif(selectedId, { rotation: val })} />
           <SliderControl label="Size" value={activeMotif.config.scale} min={0.1} max={3} step={0.05} onChange={val => updateMotif(selectedId, { scale: val })} />
-          <SliderControl label="Count" value={activeMotif.config.multiplicity} min={0} max={64} step={1} onChange={val => updateMotif(selectedId, { multiplicity: val })} />
+          
+          {/* Count Slider - Starts at 1, Disabled if Center */}
+          <SliderControl 
+            label="Count" value={activeMotif.config.isCenter ? 1 : activeMotif.config.multiplicity} 
+            min={1} max={64} step={1} 
+            disabled={activeMotif.config.isCenter}
+            onChange={val => updateMotif(selectedId, { multiplicity: val })} 
+          />
+          
           <div className="toggles-row parameters-toggles">
              <label className="checkbox-label"><input type="checkbox" checked={activeMotif.config.flip} onChange={e => updateMotif(selectedId, { flip: e.target.checked })} /> Flip</label>
              <label className="checkbox-label"><input type="checkbox" checked={activeMotif.config.invert} onChange={e => updateMotif(selectedId, { invert: e.target.checked })} /> Invert</label>
@@ -166,11 +193,11 @@ const Controls = ({
   );
 };
 
-const SliderControl = ({ label, value, min, max, step, onChange }) => (
-  <div className="slider-row">
+const SliderControl = ({ label, value, min, max, step, onChange, disabled }) => (
+  <div className="slider-row" style={{ opacity: disabled ? 0.5 : 1, pointerEvents: disabled ? 'none' : 'auto' }}>
     <label className="slider-label">{label}</label>
-    <input type="range" className="styled-range" min={min} max={max} step={step} value={value} onChange={e => onChange(Number(e.target.value))} />
-    <input type="number" className="styled-number" value={value} onChange={e => onChange(Number(e.target.value))} min={min} max={max} />
+    <input type="range" className="styled-range" min={min} max={max} step={step} value={value} onChange={e => onChange(Number(e.target.value))} disabled={disabled} />
+    <input type="number" className="styled-number" value={value} onChange={e => onChange(Number(e.target.value))} min={min} max={max} disabled={disabled} />
   </div>
 );
 

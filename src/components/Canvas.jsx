@@ -1,155 +1,145 @@
-import React, { useRef, useEffect, useImperativeHandle, forwardRef } from 'react';
-import { toRad, tintImage, invertHex } from '../utils';
+import React, { useRef, useImperativeHandle, forwardRef, useEffect } from 'react';
+import { toRad, tintImage } from '../utils';
 
-const Canvas = forwardRef(({ motifs, gridOrder, showGrid, globalInvert, showIDs, isFullScreen, toggleFullScreen }, ref) => {
+const Canvas = forwardRef(({ motifs, gridOrder, showGrid, globalInvert, showIDs }, ref) => {
   const canvasRef = useRef(null);
+  const LOGICAL_SIZE = 1000;
+
+  const download = () => {
+    const canvas = canvasRef.current;
+    const link = document.createElement('a');
+    link.download = `mandala-${Date.now()}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  };
+  
+  const getData = () => [];
+
+  useImperativeHandle(ref, () => ({ download, getData }));
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    
-    // Resize based on mode
-    if (isFullScreen) {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-    } else {
-      canvas.width = 1000; // High res for download quality
-      canvas.height = 1000;
-    }
-
     const ctx = canvas.getContext('2d');
-    const width = canvas.width;
-    const height = canvas.height;
-    
-    // Center & Scale Logic
-    const centerX = width / 2;
-    const centerY = height / 2;
-    const minDim = Math.min(width, height);
-    const drawScale = minDim / 1000; 
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = LOGICAL_SIZE * dpr;
+    canvas.height = LOGICAL_SIZE * dpr;
+    canvas.style.width = '100%';
+    canvas.style.height = '100%';
+    ctx.scale(dpr, dpr);
 
-    // Draw Background
-    ctx.fillStyle = globalInvert ? '#000000' : '#ffffff';
-    ctx.fillRect(0, 0, width, height);
+    // Background
+    ctx.fillStyle = globalInvert ? '#1a1a1a' : '#ffffff';
+    ctx.fillRect(0, 0, LOGICAL_SIZE, LOGICAL_SIZE);
 
-    if (showGrid) drawGrid(ctx, centerX, centerY, gridOrder, globalInvert, drawScale);
+    const centerX = LOGICAL_SIZE / 2;
+    const centerY = LOGICAL_SIZE / 2;
+    const maxRadius = (LOGICAL_SIZE / 2) - 50; 
+
+    // Draw Grid
+    if (showGrid) {
+      ctx.strokeStyle = globalInvert ? '#444' : '#eee';
+      ctx.lineWidth = 1;
+      for (let i = 1; i <= 10; i++) {
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, maxRadius * (i / 10), 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      for (let i = 0; i < gridOrder; i++) {
+        const theta = (i * 2 * Math.PI) / gridOrder - (Math.PI / 2); // Start at Top (-90deg)
+        ctx.beginPath();
+        ctx.moveTo(centerX, centerY);
+        ctx.lineTo(centerX + maxRadius * Math.cos(theta), centerY + maxRadius * Math.sin(theta));
+        ctx.stroke();
+      }
+    }
 
     const drawAllMotifs = async () => {
       const sortedMotifs = [...motifs].sort((a, b) => {
-        const radA = a.config.multiplicity === 0 ? 0 : a.config.radius;
-        const radB = b.config.multiplicity === 0 ? 0 : b.config.radius;
-        return radA - radB;
+          const rA = a.config.isCenter ? 0 : a.config.radius;
+          const rB = b.config.isCenter ? 0 : b.config.radius;
+          return rA - rB;
       });
-      
-      for (let i = 0; i < sortedMotifs.length; i++) {
-        await drawSingleMotif(ctx, centerX, centerY, sortedMotifs[i], gridOrder, globalInvert, showIDs, i + 1, drawScale);
+
+      for (const motif of sortedMotifs) {
+        await drawSingleMotif(ctx, motif, centerX, centerY, maxRadius, gridOrder, globalInvert, showIDs);
       }
     };
+
     drawAllMotifs();
 
-  }, [motifs, gridOrder, showGrid, globalInvert, showIDs, isFullScreen]);
+  }, [motifs, gridOrder, showGrid, globalInvert, showIDs]);
 
-  // --- DOWNLOAD LOGIC EXPOSED TO PARENT ---
-  const downloadPNG = () => {
-    const canvas = canvasRef.current;
-    const link = document.createElement('a');
-    link.download = `mandala-art-${Date.now()}.png`;
-    link.href = canvas.toDataURL('image/png');
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  useImperativeHandle(ref, () => ({
-    download: downloadPNG
-  }));
-
-  return (
-    <div className="view-pane-wrapper">
-      {/* ONLY SHOW FLOATING BUTTONS IN FULL SCREEN */}
-      {isFullScreen && (
-        <div className="fullscreen-toolbar">
-           <button onClick={toggleFullScreen} className="float-btn">Exit Full Screen</button>
-           <button onClick={downloadPNG} className="float-btn">⬇ Save PNG</button>
-        </div>
-      )}
-      <canvas ref={canvasRef} className="main-canvas-element" />
-    </div>
-  );
+  return <canvas ref={canvasRef} className="main-canvas-element" />;
 });
 
-// --- Helpers ---
-const drawGrid = (ctx, cx, cy, order, invert, scale) => {
-  ctx.save();
-  ctx.strokeStyle = invert ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)';
-  ctx.lineWidth = 1;
-  const maxRadius = 500 * scale; 
-  for (let r = 0; r < maxRadius; r += (60 * scale)) {
-    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
-  }
-  for (let i = 0; i < order; i++) {
-    const angle = (i * 360) / order;
-    ctx.save(); ctx.translate(cx, cy); ctx.rotate(toRad(angle - 90));
-    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(maxRadius, 0); ctx.stroke(); ctx.restore();
-  }
-  ctx.restore();
-};
-
-const drawSingleMotif = (ctx, cx, cy, motif, gridOrder, globalInvert, showIDs, layerNumber, drawScale) => {
+const drawSingleMotif = (ctx, motif, cx, cy, maxRadius, gridOrder, globalInvert, showIDs) => {
   return new Promise((resolve) => {
     const img = new Image();
+    img.crossOrigin = "anonymous";
     img.src = motif.url;
-    img.crossOrigin = "Anonymous"; 
     img.onload = () => {
-      const { radius, angle, rotation, scale, multiplicity, flip, invert, color } = motif.config;
-      const shouldInvert = (invert && !globalInvert) || (!invert && globalInvert);
-      let finalColor = color;
-      if (shouldInvert) finalColor = invertHex(color);
-      else if (globalInvert && color === '#000000') finalColor = '#ffffff'; 
+      const { radius, angle, rotation, scale, multiplicity, flip, invert, color, isCenter } = motif.config;
+      
+      const count = isCenter ? 1 : Math.max(gridOrder * multiplicity, 1);
+      const effectiveRadius = isCenter ? 0 : radius;
+      
+      let drawImg = img;
+      if (color !== '#000000') {
+          drawImg = tintImage(img, color);
+      }
 
-      const drawable = tintImage(img, finalColor);
-      const isWhiteOnWhite = (finalColor.toLowerCase() === '#ffffff' && !globalInvert);
-      const isCenter = multiplicity === 0;
-      const totalCopies = isCenter ? 1 : gridOrder * multiplicity;
-      const finalScale = scale * drawScale;
-      const radiusPixel = radius * (500 * drawScale - 50 * drawScale); 
-
-      for (let i = 0; i < totalCopies; i++) {
+      for (let i = 0; i < count; i++) {
         ctx.save();
-        ctx.translate(cx, cy);
-        if (isCenter) {
-            ctx.rotate(toRad(rotation)); 
-            if (showIDs) {
-                ctx.save(); ctx.fillStyle = globalInvert ? "#ffff00" : "#0000ff";
-                ctx.font = `bold ${20 * drawScale}px sans-serif`;
-                ctx.textAlign = "center"; ctx.textBaseline = "middle";
-                ctx.fillText(layerNumber.toString(), 0, -(img.height * finalScale / 2) - (15 * drawScale));
-                ctx.restore();
-            }
-        } else {
-            const sectorAngle = (i * 360) / totalCopies;
-            const finalAngle = angle + sectorAngle;
-            ctx.rotate(toRad(finalAngle - 90));
-            ctx.translate(radiusPixel, 0);
-            if (showIDs) {
-                ctx.save(); ctx.rotate(toRad(90)); 
-                ctx.fillStyle = globalInvert ? "#ffff00" : "#0000ff";
-                ctx.font = `bold ${16 * drawScale}px sans-serif`;
-                ctx.textAlign = "center"; ctx.textBaseline = "middle";
-                ctx.fillText(layerNumber.toString(), 0, -(img.height * finalScale / 2) - (12 * drawScale)); 
-                ctx.restore();
-            }
-            ctx.rotate(toRad(rotation + 90));
+        
+        // --- FIXED ALIGNMENT MATH ---
+        // 1. Calculate Angle (Exact match to GraphView)
+        // -90 ensures 0 degrees is TOP (North)
+        const theta = isCenter 
+            ? 0 
+            : toRad(angle + (i * 360) / count - 90);
+            
+        // 2. Calculate Exact X,Y Position
+        const rPx = effectiveRadius * maxRadius;
+        const x = cx + rPx * Math.cos(theta);
+        const y = cy + rPx * Math.sin(theta);
+        
+        // 3. Move Context to that position
+        ctx.translate(x, y);
+        
+        // 4. Rotate context to face outward (Radial Rotation)
+        // +90 corrects the image orientation relative to the path
+        ctx.rotate(theta + toRad(90)); 
+        
+        // 5. Apply Local Rotation & Flip
+        ctx.rotate(toRad(rotation));
+        if (flip) ctx.scale(-1, 1);
+        
+        // 6. Draw Image Centered
+        const w = 50 * scale; 
+        const h = 50 * scale * (img.height / img.width);
+        
+        if (invert || globalInvert) ctx.filter = 'invert(1)';
+        
+        ctx.drawImage(drawImg, -w / 2, -h / 2, w, h);
+        
+        if (showIDs) {
+            ctx.filter = 'none';
+            ctx.fillStyle = globalInvert ? '#fff' : '#000';
+            ctx.font = '14px sans-serif'; 
+            ctx.textAlign = 'center';
+            // Rotate text back so it is always upright? 
+            // Or keep it radial? Standard is usually upright for readability:
+            // ctx.rotate(-(theta + toRad(90) + toRad(rotation))); 
+            // Let's keep it simple (radial) for now as requested by "alignment".
+            const label = isCenter ? `${motif.id.slice(-4)}-0` : `${motif.id.slice(-4)}-${i}`;
+            ctx.fillText(label, 0, -h/2 - 5);
         }
-        const scaleX = flip ? -finalScale : finalScale;
-        ctx.scale(scaleX, finalScale);
-        if (isWhiteOnWhite) {
-            ctx.shadowColor = "rgba(0,0,0,0.5)"; ctx.shadowBlur = 4;
-        }
-        ctx.drawImage(drawable, -img.width / 2, -img.height / 2);
+
         ctx.restore();
       }
       resolve();
     };
-    img.onerror = () => resolve();
+    img.onerror = resolve;
   });
 };
 
