@@ -98,6 +98,7 @@ The `mandala_connectivity.json` export uses a simplified format tailored for gra
 * **Radial Edges:** Connect a node in Layer `N` to a node in Layer `N-1`. They do *not* connect siblings in the same layer.
 
 **Example Structure:**
+
 ```json
 {
   "description": "Adjacency List (Center Merged, Layer-Grouped)",
@@ -107,19 +108,22 @@ The `mandala_connectivity.json` export uses a simplified format tailored for gra
   },
   "node_count": 25,
   "edges": [
-    [1, 0],  // Node 1 (Layer 1) connects to Node 0 (Center)
+    [1, 0],
     [2, 0],
-    [2, 1],  // Node 2 connects to Node 1 (Ring connection)
-    ...
+    [2, 1]
   ]
 }
+```
+
+---
 
 ## 🧩 Usage Tips
 
 ### Creating a Center Node
 1. Add a motif to be the center.
 2. In the **Edit** panel, check the **"Set as Center Element"** box.
-3. This automatically locks the count to **1** and places it at coordinates `(0,0)`. All immediate neighbors will connect to this single node.
+3. This automatically locks the count to **1** and places it at coordinates `(0,0)`.  
+   All immediate neighbors will connect to this single node.
 
 ### Validating Topology
 1. Switch to **Overlay** mode.
@@ -133,4 +137,5 @@ The `mandala_connectivity.json` export uses a simplified format tailored for gra
 ---
 
 ## 📝 License
+
 This project is open-source. Feel free to fork and modify!
