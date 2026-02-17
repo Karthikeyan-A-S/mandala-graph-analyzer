@@ -2,17 +2,22 @@ import React, { useRef, useEffect, useState, useImperativeHandle, forwardRef } f
 import { toRad } from '../utils';
 import { computeDegree, computeCloseness, computeBetweenness, computeEigenvector } from '../utils';
 
-// Helper for heatmap colors
 const getHeatmapColor = (score, maxScore) => {
   const ratio = maxScore > 0 ? score / maxScore : 0;
   const hue = 240 - (ratio * 240); 
   return `hsl(${hue}, 80%, 50%)`;
 };
 
-const GraphView = forwardRef(({ motifs, gridOrder, width = 800, height = 800, showIDs, isFullScreen, toggleFullScreen, centralityMode }, ref) => {
+const GraphView = forwardRef(({ 
+  motifs, gridOrder, width = 800, height = 800, 
+  showIDs, isFullScreen, toggleFullScreen, centralityMode,
+  // NEW PROP
+  edgeTopology = { radial: true, ring: true }
+}, ref) => {
+  
   const svgRef = useRef(null);
   const [graphData, setGraphData] = useState({ nodes: [], edges: [] });
-  const [graphState, setGraphState] = useState({ nodes: [], adjacency: {} }); // Store for analysis
+  const [graphState, setGraphState] = useState({ nodes: [], adjacency: {} });
   
   const viewWidth = isFullScreen ? window.innerWidth : width;
   const viewHeight = isFullScreen ? window.innerHeight : height;
@@ -24,10 +29,7 @@ const GraphView = forwardRef(({ motifs, gridOrder, width = 800, height = 800, sh
     const allEdges = [];
     const adjacency = {}; 
 
-    const addNode = (n) => { 
-        allNodes.push(n); 
-        adjacency[n.id] = []; 
-    };
+    const addNode = (n) => { allNodes.push(n); adjacency[n.id] = []; };
     const addEdge = (u, v, props) => {
         allEdges.push(props);
         adjacency[u].push(v);
@@ -43,7 +45,6 @@ const GraphView = forwardRef(({ motifs, gridOrder, width = 800, height = 800, sh
     let previousLayerNodes = [];
     const centerMotifIndex = sortedMotifs.findIndex(m => m.config.multiplicity === 0);
     
-    // --- REDUCED NODE SIZES HERE ---
     if (centerMotifIndex !== -1) {
         const centerMotif = sortedMotifs[centerMotifIndex];
         const rootNode = {
@@ -81,7 +82,6 @@ const GraphView = forwardRef(({ motifs, gridOrder, width = 800, height = 800, sh
         const node = {
           id: nodeId, x, y,
           color: color === '#000000' ? getColor(idx) : color,
-          // SMALLER NODES: Base 3px + small scale bonus
           r: 3 + (scale * 2), baseR: 3 + (scale * 2),
           label: layerLabel, layer: layerLabel
         };
@@ -95,13 +95,17 @@ const GraphView = forwardRef(({ motifs, gridOrder, width = 800, height = 800, sh
           if (dist < minDist) { minDist = dist; closestPrev = prevNode; }
         });
         
-        addEdge(nodeId, closestPrev.id, { 
-            key: `e-${nodeId}-${closestPrev.id}`, 
-            x1: x, y1: y, x2: closestPrev.x, y2: closestPrev.y, isRing: false 
-        });
+        // --- CONDITIONAL RADIAL EDGES ---
+        if (edgeTopology.radial) {
+            addEdge(nodeId, closestPrev.id, { 
+                key: `e-${nodeId}-${closestPrev.id}`, 
+                x1: x, y1: y, x2: closestPrev.x, y2: closestPrev.y, isRing: false 
+            });
+        }
       }
       
-      if (currentLayerNodes.length > 1) {
+      // --- CONDITIONAL RING EDGES ---
+      if (edgeTopology.ring && currentLayerNodes.length > 1) {
         for (let i = 0; i < currentLayerNodes.length; i++) {
           const n1 = currentLayerNodes[i];
           const n2 = currentLayerNodes[(i + 1) % currentLayerNodes.length];
@@ -114,10 +118,8 @@ const GraphView = forwardRef(({ motifs, gridOrder, width = 800, height = 800, sh
       previousLayerNodes = currentLayerNodes;
     });
 
-    // Save state for Data Table export
     setGraphState({ nodes: allNodes, adjacency });
 
-    // Apply Visual Mode Centrality
     if (centralityMode !== 'none') {
         const nodeIds = allNodes.map(n => n.id);
         let scores = {};
@@ -132,14 +134,13 @@ const GraphView = forwardRef(({ motifs, gridOrder, width = 800, height = 800, sh
         allNodes.forEach(n => {
             const score = scores[n.id] || 0;
             n.color = getHeatmapColor(score, maxScore);
-            // Sizing: Base + max 10px extra
             const sizeBonus = (score / maxScore) * 10; 
             n.r = n.baseR + sizeBonus;
         });
     }
 
     setGraphData({ nodes: allNodes, edges: allEdges });
-  }, [motifs, gridOrder, viewWidth, viewHeight, centralityMode]);
+  }, [motifs, gridOrder, viewWidth, viewHeight, centralityMode, edgeTopology]); // Add edgeTopology dependency
 
   const getColor = (i) => ['#3498db', '#f1c40f', '#9b59b6', '#e67e22', '#1abc9c', '#e74c3c'][i % 6];
 
@@ -151,34 +152,22 @@ const GraphView = forwardRef(({ motifs, gridOrder, width = 800, height = 800, sh
     document.body.appendChild(link); link.click(); document.body.removeChild(link);
   };
 
-  // --- NEW: GENERATE FULL DATA TABLE ---
   const getAnalysisData = () => {
       const { nodes, adjacency } = graphState;
       if (!nodes.length) return [];
-
       const nodeIds = nodes.map(n => n.id);
-      
-      // Compute ALL metrics
       const deg = computeDegree(adjacency, nodeIds);
       const clo = computeCloseness(adjacency, nodeIds);
       const bet = computeBetweenness(adjacency, nodeIds);
       const eig = computeEigenvector(adjacency, nodeIds);
-
-      // Combine into rows
       return nodes.map(n => ({
-          id: n.id,
-          layer: n.layer,
-          degree: deg[n.id] || 0,
-          closeness: clo[n.id] || 0,
-          betweenness: bet[n.id] || 0,
-          eigenvector: eig[n.id] || 0
+          id: n.id, layer: n.layer,
+          degree: deg[n.id] || 0, closeness: clo[n.id] || 0,
+          betweenness: bet[n.id] || 0, eigenvector: eig[n.id] || 0
       }));
   };
 
-  useImperativeHandle(ref, () => ({ 
-      download: downloadSVG,
-      getData: getAnalysisData // Expose data getter
-  }));
+  useImperativeHandle(ref, () => ({ download: downloadSVG, getData: getAnalysisData }));
 
   return (
     <div className="view-pane-wrapper">

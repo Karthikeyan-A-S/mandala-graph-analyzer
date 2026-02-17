@@ -8,11 +8,12 @@ const Controls = ({
   showGrid, setShowGrid,
   globalInvert, setGlobalInvert,
   showIDs, setShowIDs,
-  
-  // Centrality & Analysis Props
   centralityMode, setCentralityMode,
   handleOpenTable, 
   
+  // NEW: Topology Props
+  edgeTopology, setEdgeTopology,
+
   motifs, selectedId, setSelectedId,
   addMotif, updateMotif, deleteMotif, clearAllMotifs,
   handleCustomImage,
@@ -35,18 +36,8 @@ const Controls = ({
       <h2 className="toolbox-title">Mandala Controls</h2>
 
       <div className="view-toggle">
-        <button 
-          className={`toggle-btn ${viewMode === 'canvas' ? 'active' : ''}`} 
-          onClick={() => setViewMode('canvas')}
-        >
-          🎨 Image View
-        </button>
-        <button 
-          className={`toggle-btn ${viewMode === 'graph' ? 'active' : ''}`} 
-          onClick={() => setViewMode('graph')}
-        >
-          🕸 Graph View
-        </button>
+        <button className={`toggle-btn ${viewMode === 'canvas' ? 'active' : ''}`} onClick={() => setViewMode('canvas')}>🎨 Image View</button>
+        <button className={`toggle-btn ${viewMode === 'graph' ? 'active' : ''}`} onClick={() => setViewMode('graph')}>🕸 Graph View</button>
       </div>
       
       <fieldset>
@@ -62,36 +53,59 @@ const Controls = ({
           <label className="checkbox-label"><input type="checkbox" checked={globalInvert} onChange={e => setGlobalInvert(e.target.checked)} /> Invert BG</label>
           <label className="checkbox-label"><input type="checkbox" checked={showIDs} onChange={e => setShowIDs(e.target.checked)} /> Show IDs</label>
         </div>
-        
-        {/* ANALYSIS CONTROLS (Graph Only) */}
+
+        {/* --- NEW: GRAPH TOPOLOGY CONTROL --- */}
         {viewMode === 'graph' && (
-          <div className="control-row" style={{ marginTop: '10px', borderTop: '1px solid #eee', paddingTop: '10px', flexWrap: 'wrap', gap: '8px' }}>
-             <label style={{ fontWeight: 'bold', color: '#2c3e50', width: '100%', fontSize: '0.9rem' }}>Network Analysis:</label>
-             <select 
-               className="styled-select" 
-               value={centralityMode} 
-               onChange={e => setCentralityMode(e.target.value)}
-               style={{ flex: 1, minWidth: '120px' }}
-             >
-               <option value="none">Heatmap: None</option>
-               <option value="degree">Degree</option>
-               <option value="closeness">Closeness</option>
-               <option value="betweenness">Betweenness</option>
-               <option value="eigenvector">Eigenvector</option>
-             </select>
-             
-             <button 
-               className="secondary-btn" 
-               style={{ width: 'auto', padding: '6px 12px', fontSize: '0.85rem' }}
-               onClick={handleOpenTable}
-             >
-               📊 Table
-             </button>
-          </div>
+          <>
+            <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid #eee' }}>
+              <legend style={{fontSize:'0.85rem', color:'#7f8c8d', marginBottom:'5px', display:'block'}}>Graph Topology</legend>
+              <div className="toggles-row">
+                <label className="checkbox-label" title="Connect layers inwards/outwards">
+                  <input 
+                    type="checkbox" 
+                    checked={edgeTopology?.radial} 
+                    onChange={e => setEdgeTopology({...edgeTopology, radial: e.target.checked})} 
+                  /> 
+                  Radial Edges
+                </label>
+                <label className="checkbox-label" title="Connect neighbors in same ring">
+                  <input 
+                    type="checkbox" 
+                    checked={edgeTopology?.ring} 
+                    onChange={e => setEdgeTopology({...edgeTopology, ring: e.target.checked})} 
+                  /> 
+                  Ring Edges
+                </label>
+              </div>
+            </div>
+
+            <div className="control-row" style={{ marginTop: '10px', borderTop: '1px solid #eee', paddingTop: '10px', flexWrap: 'wrap', gap: '8px' }}>
+               <label style={{ fontWeight: 'bold', color: '#2c3e50', width: '100%', fontSize: '0.9rem' }}>Network Analysis:</label>
+               <select 
+                 className="styled-select" 
+                 value={centralityMode} 
+                 onChange={e => setCentralityMode(e.target.value)}
+                 style={{ flex: 1, minWidth: '120px' }}
+               >
+                 <option value="none">Heatmap: None</option>
+                 <option value="degree">Degree</option>
+                 <option value="closeness">Closeness</option>
+                 <option value="betweenness">Betweenness</option>
+                 <option value="eigenvector">Eigenvector</option>
+               </select>
+               
+               <button 
+                 className="secondary-btn" 
+                 style={{ width: 'auto', padding: '6px 12px', fontSize: '0.85rem' }}
+                 onClick={handleOpenTable}
+               >
+                 📊 Table
+               </button>
+            </div>
+          </>
         )}
       </fieldset>
 
-      {/* VIEW ACTIONS */}
       <div className="view-actions-row">
         <button className="secondary-btn" onClick={toggleFullScreen}>⤢ Full Screen</button>
         <button className="primary-btn" onClick={triggerViewDownload}>⬇ Save {viewMode === 'canvas' ? 'PNG' : 'SVG'}</button>
@@ -103,20 +117,13 @@ const Controls = ({
             <button className="primary-btn" style={{ fontSize: '0.8rem', padding: '8px' }} onClick={downloadJSON}>⬇ JSON</button>
             <button className="download-btn" style={{ fontSize: '0.8rem', padding: '8px' }} onClick={downloadConnectionData}>⬇ MATLAB</button>
         </div>
-        
         <div className="json-import-area">
-          <textarea 
-            className="json-textarea" 
-            placeholder="Paste JSON here..." 
-            value={jsonInput} 
-            onChange={handleJsonInputChange} 
-            rows={1} 
-          />
+          <textarea className="json-textarea" placeholder="Paste JSON here..." value={jsonInput} onChange={handleJsonInputChange} rows={1} />
           <button className="secondary-btn" onClick={loadGraphFromInput} disabled={!jsonInput}>Load JSON</button>
         </div>
       </fieldset>
 
-      {/* LIBRARY */}
+      {/* Library, Active Motifs, Edit Panel ... (No Changes) */}
       <fieldset>
         <div className="legend-row">
            <legend>Library</legend>
@@ -135,7 +142,6 @@ const Controls = ({
         </label>
       </fieldset>
 
-      {/* ACTIVE MOTIFS */}
       <fieldset>
         <div className="legend-row">
           <legend>Active Motifs ({motifs.length})</legend>
@@ -144,8 +150,7 @@ const Controls = ({
           )}
         </div>
         <div className="used-list">
-          {motifs.length === 0 ? <div style={{padding:'10px', color:'#999', textAlign:'center', fontStyle:'italic'}}>No motifs added.</div> :
-            motifs.map(m => (
+          {motifs.map(m => (
             <div key={m.id} className={`used-item ${selectedId === m.id ? 'active' : ''}`} onClick={() => setSelectedId(m.id)}>
               <img src={m.url} alt="" className="used-thumb"/>
               <span className="used-id">{m.id.slice(-4)}</span>
@@ -155,7 +160,6 @@ const Controls = ({
         </div>
       </fieldset>
 
-      {/* EDIT PANEL */}
       <div className={`edit-panel ${activeMotif ? 'panel-visible' : ''}`}>
       {activeMotif && (
         <fieldset className="highlight-fieldset">
@@ -165,7 +169,6 @@ const Controls = ({
           <SliderControl label="Rotation" value={activeMotif.config.rotation} min={-180} max={180} step={1} onChange={val => updateMotif(selectedId, { rotation: val })} />
           <SliderControl label="Size" value={activeMotif.config.scale} min={0.1} max={3} step={0.05} onChange={val => updateMotif(selectedId, { scale: val })} />
           <SliderControl label="Count" value={activeMotif.config.multiplicity} min={0} max={64} step={1} onChange={val => updateMotif(selectedId, { multiplicity: val })} />
-          
           <div className="toggles-row parameters-toggles">
              <label className="checkbox-label"><input type="checkbox" checked={activeMotif.config.flip} onChange={e => updateMotif(selectedId, { flip: e.target.checked })} /> Flip</label>
              <label className="checkbox-label"><input type="checkbox" checked={activeMotif.config.invert} onChange={e => updateMotif(selectedId, { invert: e.target.checked })} /> Invert</label>
@@ -174,7 +177,6 @@ const Controls = ({
         </fieldset>
       )}
       </div>
-
       <LibraryModal isOpen={showLibrary} onClose={() => setShowLibrary(false)} images={libraryImages} onSelect={handleModalSelect} />
     </div>
   );

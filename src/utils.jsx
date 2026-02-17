@@ -7,7 +7,7 @@ export const getLibraryImages = () => {
   const basePath = import.meta.env.BASE_URL;
 
   // CHANGE '112' TO YOUR ACTUAL IMAGE COUNT (e.g., 20, 50, etc.)
-  const totalImages = 20; // <--- Update this number
+  const totalImages = 112; // <--- Update this number
 
   for (let i = 1; i <= totalImages; i++) {
     const num = i.toString().padStart(3, '0'); // This creates "001", "002"...
