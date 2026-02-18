@@ -8,7 +8,7 @@ const getHeatmapColor = (score, maxScore) => {
 };
 
 const GraphView = forwardRef(({ 
-  motifs, gridOrder, showIDs, centralityMode,
+  motifs, gridOrder, showNodeIDs, centralityMode,
   edgeTopology = { radial: true, ring: true },
   transparentBackground = false 
 }, ref) => {
@@ -34,24 +34,18 @@ const GraphView = forwardRef(({
         adjacency[v].push(u); 
     };
 
-    // 1. Separate & Sort
     const centerMotifs = motifs.filter(m => m.config.isCenter);
     const ringMotifs = motifs.filter(m => !m.config.isCenter).sort((a, b) => a.config.radius - b.config.radius);
 
-    // 2. Group Ring Motifs by Radius (Tolerance 0.01)
     const layers = [];
     ringMotifs.forEach(m => {
         const existingLayer = layers.find(l => Math.abs(l.radius - m.config.radius) < 0.01);
-        if (existingLayer) {
-            existingLayer.motifs.push(m);
-        } else {
-            layers.push({ radius: m.config.radius, motifs: [m] });
-        }
+        if (existingLayer) existingLayer.motifs.push(m);
+        else layers.push({ radius: m.config.radius, motifs: [m] });
     });
 
     let previousLayerNodes = [];
     
-    // 3. Create SINGLE Center Node
     if (centerMotifs.length > 0) {
         const rep = centerMotifs[0]; 
         const rootNode = {
@@ -70,17 +64,13 @@ const GraphView = forwardRef(({
         previousLayerNodes = [abstractCenter];
     }
 
-    // 4. Process Layers (Grouped by Radius)
     layers.forEach((layer, layerIdx) => {
-      const currentLayerTotalNodes = []; // All nodes generated in this radius-layer
+      const currentLayerTotalNodes = []; 
 
       layer.motifs.forEach((motif, mIdx) => {
           const { angle, multiplicity, color, scale } = motif.config;
           const currentMotifNodes = [];
           
-          // Generate an ID suffix based on layer index + motif index to ensure uniqueness
-          // This prevents ID collision if multiple motifs are in the same layer
-          const uniqueGroupSuffix = `${layerIdx}-${mIdx}`; 
           const layerLabel = (layerIdx + 1).toString();
           const totalNodes = Math.max(gridOrder * multiplicity, 1);
           
@@ -100,9 +90,8 @@ const GraphView = forwardRef(({
             };
             addNode(node);
             currentMotifNodes.push(node);
-            currentLayerTotalNodes.push(node); // Collect for next layer's reference
+            currentLayerTotalNodes.push(node);
 
-            // RADIAL CONNECTION (Connect to PREVIOUS layer, not sibling motifs)
             if (edgeTopology.radial) {
                 let closestPrev = previousLayerNodes[0];
                 let minDist = Infinity;
@@ -118,7 +107,6 @@ const GraphView = forwardRef(({
             }
           }
           
-          // RING CONNECTION (Within this specific motif's ring)
           if (edgeTopology.ring && currentMotifNodes.length > 1) {
             for (let i = 0; i < currentMotifNodes.length; i++) {
               const n1 = currentMotifNodes[i];
@@ -130,9 +118,6 @@ const GraphView = forwardRef(({
             }
           }
       });
-
-      // Update previous layer to be THIS entire layer (all motifs combined)
-      // So the NEXT layer (larger radius) will connect to any of these nodes.
       previousLayerNodes = currentLayerTotalNodes;
     });
 
@@ -195,7 +180,7 @@ const GraphView = forwardRef(({
         {graphData.nodes.map((n) => (
           <g key={n.id} transform={`translate(${n.x},${n.y})`}>
             <circle r={n.r} fill={n.color} stroke="#333" strokeWidth="1" />
-            {(n.label === 'C' || showIDs) && (
+            {(n.label === 'C' || showNodeIDs) && (
               <text dy=".3em" textAnchor="middle" fill="#000" fontSize="14px" fontWeight="bold" stroke="white" strokeWidth="2px" paintOrder="stroke">
                 {n.label}
               </text>

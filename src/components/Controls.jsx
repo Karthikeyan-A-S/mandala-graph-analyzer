@@ -7,7 +7,11 @@ const Controls = ({
   gridOrder, setGridOrder, 
   showGrid, setShowGrid,
   globalInvert, setGlobalInvert,
-  showIDs, setShowIDs,
+  
+  // New split ID props
+  showMotifIDs, setShowMotifIDs,
+  showNodeIDs, setShowNodeIDs,
+  
   centralityMode, setCentralityMode,
   handleOpenTable, 
   edgeTopology, setEdgeTopology,
@@ -48,7 +52,10 @@ const Controls = ({
         <div className="toggles-row">
           <label className="checkbox-label"><input type="checkbox" checked={showGrid} onChange={e => setShowGrid(e.target.checked)} /> Grid</label>
           <label className="checkbox-label"><input type="checkbox" checked={globalInvert} onChange={e => setGlobalInvert(e.target.checked)} /> Invert BG</label>
-          <label className="checkbox-label"><input type="checkbox" checked={showIDs} onChange={e => setShowIDs(e.target.checked)} /> IDs</label>
+          
+          {/* SPLIT IDS OPTIONS */}
+          <label className="checkbox-label"><input type="checkbox" checked={showMotifIDs} onChange={e => setShowMotifIDs(e.target.checked)} /> Motif IDs</label>
+          <label className="checkbox-label"><input type="checkbox" checked={showNodeIDs} onChange={e => setShowNodeIDs(e.target.checked)} /> Node IDs</label>
         </div>
 
         {viewMode === 'overlay' && (
@@ -144,7 +151,6 @@ const Controls = ({
         <fieldset className="highlight-fieldset">
           <legend>Edit: {activeMotif.id.slice(-4)}</legend>
           
-          {/* --- NEW CENTER TOGGLE --- */}
           <div style={{ marginBottom: '10px', paddingBottom: '10px', borderBottom: '1px solid #eee' }}>
              <label className="checkbox-label" style={{ fontWeight: 'bold', color: '#2c3e50' }}>
                <input 
@@ -156,7 +162,6 @@ const Controls = ({
              </label>
           </div>
 
-          {/* Sliders - Disabled if isCenter is true */}
           <SliderControl 
             label="Radius" value={activeMotif.config.isCenter ? 0 : activeMotif.config.radius} 
             min={0} max={1} step={0.01} 
@@ -172,7 +177,6 @@ const Controls = ({
           <SliderControl label="Rotation" value={activeMotif.config.rotation} min={-180} max={180} step={1} onChange={val => updateMotif(selectedId, { rotation: val })} />
           <SliderControl label="Size" value={activeMotif.config.scale} min={0.1} max={3} step={0.05} onChange={val => updateMotif(selectedId, { scale: val })} />
           
-          {/* Count Slider - Starts at 1, Disabled if Center */}
           <SliderControl 
             label="Count" value={activeMotif.config.isCenter ? 1 : activeMotif.config.multiplicity} 
             min={1} max={64} step={1} 

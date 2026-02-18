@@ -13,7 +13,7 @@ const App = () => {
     return defaultValue;
   };
 
-  const [viewMode, setViewMode] = useState('canvas'); // 'canvas', 'graph', 'overlay'
+  const [viewMode, setViewMode] = useState('canvas'); 
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [centralityMode, setCentralityMode] = useState('none');
   const [edgeTopology, setEdgeTopology] = useState(() => getInitialState('mandala-topology', { radial: true, ring: true }));
@@ -29,7 +29,11 @@ const App = () => {
   const [gridOrder, setGridOrder] = useState(() => getInitialState('mandala-gridOrder', 8));
   const [showGrid, setShowGrid] = useState(() => getInitialState('mandala-showGrid', false));
   const [globalInvert, setGlobalInvert] = useState(() => getInitialState('mandala-globalInvert', false));
-  const [showIDs, setShowIDs] = useState(() => getInitialState('mandala-showIDs', true));
+  
+  // --- SPLIT ID STATES ---
+  const [showMotifIDs, setShowMotifIDs] = useState(() => getInitialState('mandala-showMotifIDs', false)); // IDs on Image
+  const [showNodeIDs, setShowNodeIDs] = useState(() => getInitialState('mandala-showNodeIDs', true));     // IDs on Graph
+
   const [motifs, setMotifs] = useState(() => getInitialState('mandala-motifs', []));
   const [selectedId, setSelectedId] = useState(null);
   const [jsonInput, setJsonInput] = useState('');
@@ -38,10 +42,11 @@ const App = () => {
     localStorage.setItem('mandala-gridOrder', JSON.stringify(gridOrder));
     localStorage.setItem('mandala-showGrid', JSON.stringify(showGrid));
     localStorage.setItem('mandala-globalInvert', JSON.stringify(globalInvert));
-    localStorage.setItem('mandala-showIDs', JSON.stringify(showIDs));
+    localStorage.setItem('mandala-showMotifIDs', JSON.stringify(showMotifIDs));
+    localStorage.setItem('mandala-showNodeIDs', JSON.stringify(showNodeIDs));
     localStorage.setItem('mandala-motifs', JSON.stringify(motifs));
     localStorage.setItem('mandala-topology', JSON.stringify(edgeTopology));
-  }, [gridOrder, showGrid, globalInvert, showIDs, motifs, edgeTopology]);
+  }, [gridOrder, showGrid, globalInvert, showMotifIDs, showNodeIDs, motifs, edgeTopology]);
 
   // --- ACTIONS ---
   const addMotif = (url) => {
@@ -126,17 +131,15 @@ const App = () => {
     reader.readAsText(file);
   };
 
-  // --- CONNECTIVITY EXPORT (STRICT LAYER LOGIC) ---
+  // --- CONNECTIVITY EXPORT ---
   const downloadConnectionData = () => {
     const nodeList = {}; 
     const edgeList = []; 
     let nodeCounter = 0;
     
-    // 1. Separate & Sort
     const centerMotifs = motifs.filter(m => m.config.isCenter);
     const ringMotifs = motifs.filter(m => !m.config.isCenter).sort((a, b) => a.config.radius - b.config.radius);
 
-    // 2. Group Ring Motifs by Radius (Layers)
     const layers = [];
     ringMotifs.forEach(m => {
         const existingLayer = layers.find(l => Math.abs(l.radius - m.config.radius) < 0.01);
@@ -146,13 +149,12 @@ const App = () => {
 
     let previousLayerIds = [];
 
-    // 3. Center Node (Layer 0)
-    // Always create one center node if any center motif exists (or abstract center)
+    // Center Node (Layer 0)
     const centerId = 'center-node';
     nodeList[centerId] = nodeCounter++;
     previousLayerIds = [centerId];
 
-    // 4. Process Layers
+    // Layers
     layers.forEach((layer) => {
         const currentLayerIds = []; 
 
@@ -164,25 +166,22 @@ const App = () => {
                 const internalId = `${motif.id}-${i}`;
                 nodeList[internalId] = nodeCounter++;
                 currentMotifIds.push(internalId);
-                currentLayerIds.push(internalId); // Add to the "Pool" for the next layer
+                currentLayerIds.push(internalId); 
 
-                // RADIAL: Connect to Previous Layer (Inner Ring)
-                // Do NOT connect to sibling motifs in the same radius layer
+                // RADIAL
                 if (edgeTopology.radial) {
                     const prevIndex = Math.floor(i * (previousLayerIds.length / totalNodes)) % previousLayerIds.length;
                     edgeList.push([nodeList[internalId], nodeList[previousLayerIds[prevIndex]]]);
                 }
             }
 
-            // RING: Connect Neighbors (Siblings in same motif)
+            // RING
             if (edgeTopology.ring && currentMotifIds.length > 1) {
                 for (let i = 0; i < currentMotifIds.length; i++) {
                     edgeList.push([nodeList[currentMotifIds[i]], nodeList[currentMotifIds[(i + 1) % currentMotifIds.length]]]);
                 }
             }
         });
-
-        // The "Previous Layer" for the NEXT outer ring becomes THIS entire combined set of nodes
         previousLayerIds = currentLayerIds;
     });
 
@@ -199,20 +198,19 @@ const App = () => {
   return (
     <div className={`app-container ${isFullScreen ? 'fullscreen-mode' : ''}`}>
       <div className="canvas-wrapper">
-        
-        {/* Layer 0: White Backdrop (Crucial for Image Opacity) */}
         <div style={{ position: 'absolute', width: '100%', height: '100%', background: 'white', zIndex: 0 }} />
-
+        
         {/* Layer 1: Image Canvas */}
         {(viewMode === 'canvas' || viewMode === 'overlay') && (
           <div style={{ 
             position: 'absolute', width: '100%', height: '100%', zIndex: 1,
-            opacity: imageOpacity // Controls ONLY Image
+            opacity: imageOpacity 
           }}>
              <Canvas 
                ref={viewMode === 'canvas' ? activeViewRef : null}
                motifs={motifs} gridOrder={gridOrder} showGrid={showGrid} 
-               globalInvert={globalInvert} showIDs={showIDs} 
+               globalInvert={globalInvert} 
+               showMotifIDs={showMotifIDs} // PASSING NEW PROP
                isFullScreen={isFullScreen} toggleFullScreen={() => setIsFullScreen(!isFullScreen)} 
              />
           </div>
@@ -222,12 +220,13 @@ const App = () => {
         {(viewMode === 'graph' || viewMode === 'overlay') && (
            <div style={{ 
              position: 'absolute', width: '100%', height: '100%', zIndex: 2, 
-             opacity: viewMode === 'overlay' ? graphOpacity : 1, // Controls ONLY Graph
-             pointerEvents: viewMode === 'overlay' ? 'none' : 'auto' // Click-through in overlay
+             opacity: viewMode === 'overlay' ? graphOpacity : 1, 
+             pointerEvents: viewMode === 'overlay' ? 'none' : 'auto' 
            }}>
              <GraphView 
                ref={activeViewRef}
-               motifs={motifs} gridOrder={gridOrder} showIDs={showIDs}
+               motifs={motifs} gridOrder={gridOrder} 
+               showNodeIDs={showNodeIDs} // PASSING NEW PROP
                isFullScreen={isFullScreen} toggleFullScreen={() => setIsFullScreen(!isFullScreen)}
                centralityMode={centralityMode} edgeTopology={edgeTopology} 
                transparentBackground={viewMode === 'overlay'}
@@ -235,7 +234,6 @@ const App = () => {
            </div>
         )}
         
-        {/* Full Screen Controls */}
         {isFullScreen && (
           <div className="fullscreen-toolbar" style={{ pointerEvents: 'auto' }}>
             <button onClick={() => setIsFullScreen(false)} className="float-btn">Exit Full Screen</button>
@@ -249,7 +247,11 @@ const App = () => {
         gridOrder={gridOrder} setGridOrder={setGridOrder}
         showGrid={showGrid} setShowGrid={setShowGrid}
         globalInvert={globalInvert} setGlobalInvert={setGlobalInvert}
-        showIDs={showIDs} setShowIDs={setShowIDs}
+        
+        // PASSING BOTH ID STATES
+        showMotifIDs={showMotifIDs} setShowMotifIDs={setShowMotifIDs}
+        showNodeIDs={showNodeIDs} setShowNodeIDs={setShowNodeIDs}
+
         motifs={motifs} selectedId={selectedId} setSelectedId={setSelectedId}
         addMotif={addMotif} updateMotif={updateMotif} deleteMotif={deleteMotif}
         clearAllMotifs={clearAllMotifs} handleCustomImage={handleCustomImage}

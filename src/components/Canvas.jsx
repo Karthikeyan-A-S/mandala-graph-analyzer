@@ -1,7 +1,7 @@
 import React, { useRef, useImperativeHandle, forwardRef, useEffect } from 'react';
 import { toRad, tintImage } from '../utils';
 
-const Canvas = forwardRef(({ motifs, gridOrder, showGrid, globalInvert, showIDs }, ref) => {
+const Canvas = forwardRef(({ motifs, gridOrder, showGrid, globalInvert, showMotifIDs }, ref) => {
   const canvasRef = useRef(null);
   const LOGICAL_SIZE = 1000;
 
@@ -27,7 +27,6 @@ const Canvas = forwardRef(({ motifs, gridOrder, showGrid, globalInvert, showIDs 
     canvas.style.height = '100%';
     ctx.scale(dpr, dpr);
 
-    // Background
     ctx.fillStyle = globalInvert ? '#1a1a1a' : '#ffffff';
     ctx.fillRect(0, 0, LOGICAL_SIZE, LOGICAL_SIZE);
 
@@ -35,7 +34,6 @@ const Canvas = forwardRef(({ motifs, gridOrder, showGrid, globalInvert, showIDs 
     const centerY = LOGICAL_SIZE / 2;
     const maxRadius = (LOGICAL_SIZE / 2) - 50; 
 
-    // Draw Grid
     if (showGrid) {
       ctx.strokeStyle = globalInvert ? '#444' : '#eee';
       ctx.lineWidth = 1;
@@ -45,7 +43,7 @@ const Canvas = forwardRef(({ motifs, gridOrder, showGrid, globalInvert, showIDs 
         ctx.stroke();
       }
       for (let i = 0; i < gridOrder; i++) {
-        const theta = (i * 2 * Math.PI) / gridOrder - (Math.PI / 2); // Start at Top (-90deg)
+        const theta = (i * 2 * Math.PI) / gridOrder - (Math.PI / 2);
         ctx.beginPath();
         ctx.moveTo(centerX, centerY);
         ctx.lineTo(centerX + maxRadius * Math.cos(theta), centerY + maxRadius * Math.sin(theta));
@@ -61,18 +59,18 @@ const Canvas = forwardRef(({ motifs, gridOrder, showGrid, globalInvert, showIDs 
       });
 
       for (const motif of sortedMotifs) {
-        await drawSingleMotif(ctx, motif, centerX, centerY, maxRadius, gridOrder, globalInvert, showIDs);
+        await drawSingleMotif(ctx, motif, centerX, centerY, maxRadius, gridOrder, globalInvert, showMotifIDs);
       }
     };
 
     drawAllMotifs();
 
-  }, [motifs, gridOrder, showGrid, globalInvert, showIDs]);
+  }, [motifs, gridOrder, showGrid, globalInvert, showMotifIDs]);
 
   return <canvas ref={canvasRef} className="main-canvas-element" />;
 });
 
-const drawSingleMotif = (ctx, motif, cx, cy, maxRadius, gridOrder, globalInvert, showIDs) => {
+const drawSingleMotif = (ctx, motif, cx, cy, maxRadius, gridOrder, globalInvert, showMotifIDs) => {
   return new Promise((resolve) => {
     const img = new Image();
     img.crossOrigin = "anonymous";
@@ -90,47 +88,27 @@ const drawSingleMotif = (ctx, motif, cx, cy, maxRadius, gridOrder, globalInvert,
 
       for (let i = 0; i < count; i++) {
         ctx.save();
-        
-        // --- FIXED ALIGNMENT MATH ---
-        // 1. Calculate Angle (Exact match to GraphView)
-        // -90 ensures 0 degrees is TOP (North)
-        const theta = isCenter 
-            ? 0 
-            : toRad(angle + (i * 360) / count - 90);
-            
-        // 2. Calculate Exact X,Y Position
+        const theta = isCenter ? 0 : toRad(angle + (i * 360) / count - 90);
         const rPx = effectiveRadius * maxRadius;
         const x = cx + rPx * Math.cos(theta);
         const y = cy + rPx * Math.sin(theta);
         
-        // 3. Move Context to that position
         ctx.translate(x, y);
-        
-        // 4. Rotate context to face outward (Radial Rotation)
-        // +90 corrects the image orientation relative to the path
         ctx.rotate(theta + toRad(90)); 
-        
-        // 5. Apply Local Rotation & Flip
         ctx.rotate(toRad(rotation));
         if (flip) ctx.scale(-1, 1);
         
-        // 6. Draw Image Centered
         const w = 50 * scale; 
         const h = 50 * scale * (img.height / img.width);
         
         if (invert || globalInvert) ctx.filter = 'invert(1)';
-        
         ctx.drawImage(drawImg, -w / 2, -h / 2, w, h);
         
-        if (showIDs) {
+        if (showMotifIDs) {
             ctx.filter = 'none';
             ctx.fillStyle = globalInvert ? '#fff' : '#000';
             ctx.font = '14px sans-serif'; 
             ctx.textAlign = 'center';
-            // Rotate text back so it is always upright? 
-            // Or keep it radial? Standard is usually upright for readability:
-            // ctx.rotate(-(theta + toRad(90) + toRad(rotation))); 
-            // Let's keep it simple (radial) for now as requested by "alignment".
             const label = isCenter ? `${motif.id.slice(-4)}-0` : `${motif.id.slice(-4)}-${i}`;
             ctx.fillText(label, 0, -h/2 - 5);
         }
